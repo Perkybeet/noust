@@ -20964,7 +20964,7 @@
     "one": "J'accepte que les conteneurs gardent ce que cette ligne leur donne de ce serveur",
     "other": "J'accepte que les conteneurs gardent ce que ces {count} lignes leur donnent de ce serveur"
   },
-  "auth.passkeyStillClosing": "Le navigateur était encore en train de fermer une autre fenêtre de clé d'accès. Réessayez.",
+  "auth.passkeyStillClosing": "Le navigateur a encore une autre demande de clé d'accès ouverte. Rechargez la page pour la fermer, puis réessayez.",
   "auth.token.descriptionServer": "Collez le jeton d'accès de ce serveur.",
   "dbServers.noSystem.line": "Les programmes qui hébergent les bases de données : les instances que Noust exécute dans des conteneurs, en d'autres versions.",
   "auth.noAccountYet": "Pas encore de compte ? Demandez-en un à la personne qui gère ce serveur. Si vous le gérez vous-même et ne pouvez pas entrer, connectez-vous avec son jeton d'accès : cette commande, sur le serveur, en affiche un nouveau.",
@@ -20973,5 +20973,7 @@
   "serverText.assistant.provider.not_a_model.text": "L'assistant ne peut pas appeler {host}:{port} : c'est le port d'un service de cette machine, pas d'un modèle",
   "serverText.assistant.provider.not_a_model.hint": "Votre consentement vaut pour le serveur d'un modèle. Démarrez le modèle sur un autre port de cette machine, ou sur une autre machine de votre réseau, et utilisez cette adresse.",
   "serverText.compose_guard.host_access_changed.text": "Ce que {domain} donne à ce serveur n'est plus ce qui vous avait été montré : rien n'a été accepté",
-  "serverText.compose_guard.host_access_changed.hint": "Voici les lignes à présent :\n{lines}\n\nChaque ligne donne à un conteneur quelque chose de ce serveur, et adopter la pile équivaut à être root. Relisez-les : on accepte ce qui est devant vous. Si vous voulez quand même l'adopter : {command}"
+  "serverText.compose_guard.host_access_changed.hint": "Voici les lignes à présent :\n{lines}\n\nChaque ligne donne à un conteneur quelque chose de ce serveur, et adopter la pile équivaut à être root. Relisez-les : on accepte ce qui est devant vous. Si vous voulez quand même l'adopter : {command}",
+  "auth.passkeyLeftOpen": "Ce navigateur a laissé ouverte la demande de clé d'accès de la page de connexion ; c'est en général l'extension d'un gestionnaire de mots de passe qui le fait. Rechargez la page pour la fermer, puis réessayez. Pour que cela ne se reproduise pas, Noust ne propose plus les clés d'accès dans le champ du nom dans ce navigateur : le bouton de la clé d'accès fonctionne comme avant.",
+  "auth.passkeyReload": "Recharger la page"
 }

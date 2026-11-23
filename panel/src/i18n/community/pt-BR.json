@@ -20964,7 +20964,7 @@
     "one": "Aceito que os contêineres mantenham o que esta linha lhes dá deste servidor",
     "other": "Aceito que os contêineres mantenham o que estas {count} linhas lhes dão deste servidor"
   },
-  "auth.passkeyStillClosing": "O navegador ainda estava fechando outra janela de chave de acesso. Tente de novo.",
+  "auth.passkeyStillClosing": "O navegador ainda tem outro pedido de chave de acesso aberto. Recarregue a página para fechá-lo e tente de novo.",
   "auth.token.descriptionServer": "Cole o token de acesso deste servidor.",
   "dbServers.noSystem.line": "Os programas que guardam os bancos de dados: as instâncias que o Noust executa em contêineres, em outras versões.",
   "auth.noAccountYet": "Ainda não tem conta? Peça uma a quem cuida deste servidor. Se você cuida dele e não consegue entrar, entre com o token de acesso dele: este comando, no servidor, mostra um novo.",
@@ -20973,5 +20973,7 @@
   "serverText.assistant.provider.not_a_model.text": "O assistente não pode chamar {host}:{port}: essa é a porta de um serviço desta máquina, não de um modelo",
   "serverText.assistant.provider.not_a_model.hint": "O seu consentimento vale para o servidor de um modelo. Inicie o modelo em outra porta desta máquina, ou em outra máquina da sua rede, e use esse endereço.",
   "serverText.compose_guard.host_access_changed.text": "O que {domain} dá a este servidor não é mais o que lhe foi mostrado, então nada foi aceito",
-  "serverText.compose_guard.host_access_changed.hint": "Estas são as linhas agora:\n{lines}\n\nCada linha dá a um contêiner algo deste servidor, e adotar a pilha equivale a ser root. Leia-as de novo: aceita-se o que está diante de você. Se mesmo assim quiser adotá-la: {command}"
+  "serverText.compose_guard.host_access_changed.hint": "Estas são as linhas agora:\n{lines}\n\nCada linha dá a um contêiner algo deste servidor, e adotar a pilha equivale a ser root. Leia-as de novo: aceita-se o que está diante de você. Se mesmo assim quiser adotá-la: {command}",
+  "auth.passkeyLeftOpen": "Este navegador deixou aberto o pedido de chave de acesso da página de entrada; costuma ser a extensão de um gerenciador de senhas. Recarregue a página para fechá-lo e tente de novo. Para que não se repita, o Noust não oferece mais chaves de acesso no campo do nome neste navegador: o botão da chave de acesso funciona como antes.",
+  "auth.passkeyReload": "Recarregar a página"
 }

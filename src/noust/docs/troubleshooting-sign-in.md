@@ -72,14 +72,25 @@ The provider knows you, but this server has no account for you. Ask a security o
 The identity provider let you in, and this server has no account linked to that identity. A
 security officer invites you or links the account ([Single sign-on](sso.md)).
 
-## The browser says another passkey window is still closing
+## The browser says another passkey request is still open
 
 ```text
-The browser was still closing another passkey window. Try again.
+The browser still has another passkey request open. Reload the page to close it, then try again.
 ```
 
-A browser allows one passkey window at a time, and it says when the last one is over a moment after the page was
-told. The console asks for one window at a time and, when the browser still answers that the previous one is
-open ("A request is already pending"), asks again a few times by itself before it shows the message, with the
-browser's own words under it. If it does show, close the browser's passkey window (Cancel, or Escape) and press
-the button once more. Nothing is wrong with the account or the server.
+A browser allows one passkey request at a time in a page. The console asks for one at a time and, when the
+browser answers that another is open ("A request is already pending"), asks again a few times by itself before
+it shows the message, with the browser's own words under it. When it does show, no wait ends it: reload the page
+(the button beside the message does it) and ask again. Nothing is wrong with the account or the server.
+
+```text
+This browser left open the passkey request of the sign-in page, which a password manager's extension usually does.
+```
+
+The sign-in page offers your passkey in the name field, which is a request the page ends when you leave it. A
+password manager's extension that answers for the browser does not always end it, and the request stays open
+for as long as the page is: every passkey after it is refused, the confirmation of a delicate action included.
+The console says so the first time it meets it, and from then on it no longer offers passkeys in the name field
+in that browser (the "Sign in with a passkey" button works as before), so it does not happen again. It is kept
+by the browser, per site: clearing the site's data brings the offer in the name field back. An authenticator
+code or a backup code confirms it is you all the while.

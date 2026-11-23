@@ -136,7 +136,9 @@ describe("adding a passkey, confirmed with a passkey first", () => {
 
     const alert = await within(adding).findByText("Could not add the passkey");
     expect(alert).toBeInTheDocument();
-    expect(within(adding).getByText("The browser was still closing another passkey window. Try again.")).toBeInTheDocument();
+    expect(within(adding).getByText("The browser still has another passkey request open. Reload the page to close it, then try again.")).toBeInTheDocument();
+    // No wait ends it: the way out is a new page, offered beside the browser's words.
+    expect(within(adding).getByRole("button", { name: "Reload the page" })).toBeInTheDocument();
     expect(within(adding).getByText("OperationError: A request is already pending.")).toBeInTheDocument();
     expect(web.calls.filter((call) => call.kind === "create")).toHaveLength(4);
     await expectNoAxeViolations(adding);

@@ -4,7 +4,19 @@ import { setLocale } from "../../app/locale";
 import { describeError } from "../../lib/errors";
 import { CREDENTIAL, abortedError, installPasskeyBrowser, pendingError } from "../../test/passkeyBrowser";
 import type { Outcome } from "../../test/passkeyBrowser";
-import { CeremonyError, PENDING_RETRY_DELAYS_MS, SETTLE_LIMIT_MS, createPasskey, getPasskey, isPendingRefusal, setCeremonyPause } from "./webauthn";
+import {
+  AUTOFILL_LEFT_OPEN_KEY,
+  CeremonyError,
+  PENDING_RETRY_DELAYS_MS,
+  SETTLE_LIMIT_MS,
+  autofillLeftOpen,
+  conditionalMediationAvailable,
+  createPasskey,
+  forgetAutofillOpened,
+  getPasskey,
+  isPendingRefusal,
+  setCeremonyPause,
+} from "./webauthn";
 
 /**
  * The page's one passkey window. The browser is faked as Chrome behaves (`test/passkeyBrowser.ts`): a call that arrives while another is
@@ -35,6 +47,9 @@ function pausesWith(web: { finishClosing: () => void }): void {
 
 beforeEach(() => {
   waits = [];
+  // A new document in a browser that remembers nothing.
+  localStorage.clear();
+  forgetAutofillOpened();
   vi.stubGlobal("PublicKeyCredential", vi.fn());
 });
 
@@ -258,10 +273,10 @@ describe("a browser that says the last window is still closing", () => {
     expect(waits).toEqual([...PENDING_RETRY_DELAYS_MS]);
     expect(PENDING_RETRY_DELAYS_MS.reduce((sum, wait) => sum + wait, 0)).toBeLessThanOrEqual(2000);
     expect(failure).toBeInstanceOf(CeremonyError);
-    expect(failure).toMatchObject({ reason: "OperationError", detail: "OperationError: A request is already pending.", cancelled: false });
+    expect(failure).toMatchObject({ reason: "OperationError", detail: "OperationError: A request is already pending.", cancelled: false, reload: true });
     // What the error blocks of the console read: the fix above, the browser's words below, verbatim.
     expect(describeError(failure)).toMatchObject({
-      hint: "The browser was still closing another passkey window. Try again.",
+      hint: "The browser still has another passkey request open. Reload the page to close it, then try again.",
       detail: "OperationError: A request is already pending.",
     });
     // Free again for the operator's next try.
@@ -275,7 +290,7 @@ describe("a browser that says the last window is still closing", () => {
     Object.defineProperty(navigator, "credentials", { configurable: true, value: { create: () => Promise.reject(pendingError()) } });
     const failure: unknown = await createPasskey(CREATION).catch((error: unknown) => error);
     expect(describeError(failure)).toMatchObject({
-      hint: "El navegador todavía estaba cerrando otra ventana de llaves de acceso. Vuelve a intentarlo.",
+      hint: "El navegador todavía tiene abierta otra petición de llaves de acceso. Recarga la página para cerrarla y vuelve a intentarlo.",
       detail: "OperationError: A request is already pending.",
     });
   });
@@ -318,5 +333,73 @@ describe("what the console takes for a browser that is still closing a window", 
     ["something that is not an error", "A request is already pending.", false],
   ])("%s", (_name, cause, expected) => {
     expect(isPendingRefusal(cause)).toBe(expected);
+  });
+});
+
+/**
+ * What takes the browser's place (a password manager's extension that answers `navigator.credentials`) and hands the autofill ceremony
+ * on without ending it when the page does: the page's promise settles, the browser's request stays open, and every ceremony after it is
+ * refused as pending for as long as the document lives. Faked as a browser that never finishes closing the window the autofill had.
+ */
+describe("a browser that leaves the autofill ceremony open", () => {
+  const offersAutofill = (): void => {
+    vi.stubGlobal("isSecureContext", true);
+    vi.stubGlobal("PublicKeyCredential", Object.assign(vi.fn(), { isConditionalMediationAvailable: () => Promise.resolve(true) }));
+  };
+
+  it("says that a new page ends it, with the button's way still there, and is not handed the autofill again", async () => {
+    const web = browser({ settlesOnAbort: true, closesSlowly: true });
+    offersAutofill();
+    // No wait ends it: nothing ever calls `finishClosing`.
+    setCeremonyPause((milliseconds) => {
+      waits.push(milliseconds);
+      return Promise.resolve();
+    });
+    await expect(conditionalMediationAvailable()).resolves.toBe(true);
+    const autofillEnds = expect(getPasskey(ASSERTION, { mediation: "conditional" })).rejects.toMatchObject({ cancelled: true });
+    const failure: unknown = await getPasskey(ASSERTION).catch((error: unknown) => error);
+    await autofillEnds;
+
+    expect(waits).toEqual([...PENDING_RETRY_DELAYS_MS]);
+    expect(failure).toMatchObject({ reason: "OperationError", cancelled: false, reload: true });
+    expect(describeError(failure)).toMatchObject({ hint: "This browser left open the passkey request of the sign-in page, which a password manager's extension usually does. Reload the page to close it, then try again. So that it does not happen again, Noust no longer offers passkeys in the name field in this browser: the passkey button works as before.", detail: "OperationError: A request is already pending." });
+    // One autofill and the explicit window asked once and after each wait: the browser never heard two at a time.
+    expect(web.overlaps).toBe(0);
+    // Remembered by the browser, so the next sign-in page opens nothing ahead of the operator.
+    expect(localStorage.getItem(AUTOFILL_LEFT_OPEN_KEY)).toBe("1");
+    expect(autofillLeftOpen()).toBe(true);
+    await expect(conditionalMediationAvailable()).resolves.toBe(false);
+  });
+
+  it("is not said of a browser that was handed no autofill in this document: it is told to reload, and nothing is remembered", async () => {
+    offersAutofill();
+    setCeremonyPause(() => Promise.resolve());
+    Object.defineProperty(navigator, "credentials", { configurable: true, value: { get: () => Promise.reject(pendingError()) } });
+    const failure: unknown = await getPasskey(ASSERTION).catch((error: unknown) => error);
+    expect(failure).toMatchObject({ reload: true });
+    expect(describeError(failure)).toMatchObject({ hint: "The browser still has another passkey request open. Reload the page to close it, then try again." });
+    expect(localStorage.getItem(AUTOFILL_LEFT_OPEN_KEY)).toBeNull();
+    await expect(conditionalMediationAvailable()).resolves.toBe(true);
+  });
+
+  it("remembers nothing of an autofill the browser ended when it was told to", async () => {
+    const web = browser({ settlesOnAbort: true });
+    offersAutofill();
+    const autofillEnds = expect(getPasskey(ASSERTION, { mediation: "conditional" })).rejects.toMatchObject({ cancelled: true });
+    const explicit = getPasskey(ASSERTION);
+    await autofillEnds;
+    await turn();
+    web.windows[1]?.settle({ value: CREDENTIAL });
+    await expect(explicit).resolves.toEqual({ id: "passkey" });
+    expect(localStorage.getItem(AUTOFILL_LEFT_OPEN_KEY)).toBeNull();
+    await expect(conditionalMediationAvailable()).resolves.toBe(true);
+  });
+
+  it("a refusal that is not the browser's request left open asks for no new page", async () => {
+    Object.defineProperty(navigator, "credentials", {
+      configurable: true,
+      value: { get: () => Promise.reject(new DOMException("The relying party ID is not a registrable domain suffix.", "SecurityError")) },
+    });
+    await expect(getPasskey(ASSERTION)).rejects.toMatchObject({ reason: "SecurityError", reload: false });
   });
 });

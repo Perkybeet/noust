@@ -88,3 +88,11 @@ What was left over from the check that holds a stack's start to what was judged 
   does not bring it back) are sentences too.
 
 ## Fixes
+
+- **A passkey that kept being refused with "A request is already pending" is said with its cure, and does not
+  come back** (item 202). 4.3 asked the browser again a few times; that does not help where a password manager's
+  extension answers for the browser and leaves open the request of the sign-in page's name field: every passkey
+  after it was refused for as long as the page lived, the confirmation of a delicate action included. The
+  message now says that reloading the page closes it, with the button beside it, and a browser that was seen
+  leaving that request open is no longer offered passkeys in the name field, so the next sign-in leaves nothing
+  open ([troubleshooting-sign-in.md](troubleshooting-sign-in.md#the-browser-says-another-passkey-request-is-still-open)).

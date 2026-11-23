@@ -28,6 +28,7 @@ import { NoticeText } from "./NoticeText";
 import { TotpSetup } from "./TotpSetup";
 import { useSignOut } from "./useSignOut";
 import { suggestedName } from "./passkeyName";
+import { passkeyRemedy } from "./passkeyRemedy";
 import { CeremonyError, browserLimit } from "./webauthn";
 
 type Step = "factor" | "notice";
@@ -231,7 +232,7 @@ export function SecondFactor({ session, onDone, optional }: SecondFactorProps) {
         </Field>
         {passkey.isError && mustSignInAgain(passkey.error) ? signInAgain : null}
         {passkey.isError && !mustSignInAgain(passkey.error) && !(passkey.error instanceof CeremonyError && passkey.error.cancelled) ? (
-          <ErrorBlock live compact error={passkey.error} title={t("auth.passkeys.addFailed")} />
+          <ErrorBlock live compact error={passkey.error} title={t("auth.passkeys.addFailed")} action={passkeyRemedy(passkey.error, t)} />
         ) : null}
         <Button type="submit" variant="primary" size="lg" className="w-full" icon={<KeyRound aria-hidden="true" />} loading={passkey.isPending}>
           {t("auth.passkeys.create")}

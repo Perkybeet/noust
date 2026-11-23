@@ -20528,7 +20528,7 @@
   "docker.hostAccess.accept": {
     "other": "我接受容器保留这 {count} 行从该服务器给予它们的内容"
   },
-  "auth.passkeyStillClosing": "浏览器还在关闭另一个通行密钥窗口。请再试一次。",
+  "auth.passkeyStillClosing": "浏览器仍有另一个通行密钥请求未关闭。请刷新页面将其关闭，然后重试。",
   "auth.token.descriptionServer": "粘贴此服务器的访问令牌。",
   "dbServers.noSystem.line": "存放数据库的程序:Noust 在容器中运行的实例,可以选择其他版本。",
   "auth.noAccountYet": "还没有账户？请向管理这台服务器的人申请。如果你自己管理它却无法登录，请用它的访问令牌登录：在服务器上运行此命令会打印一个新令牌。",
@@ -20537,5 +20537,7 @@
   "serverText.assistant.provider.not_a_model.text": "助手不能调用 {host}:{port}：这是本机某项服务的端口，而不是模型的端口",
   "serverText.assistant.provider.not_a_model.hint": "您的同意只针对模型的服务器。请在本机的另一个端口，或网络中的另一台机器上启动模型，并使用该地址。",
   "serverText.compose_guard.host_access_changed.text": "{domain} 给予此服务器的内容已不是向您展示的内容，因此没有接受任何东西",
-  "serverText.compose_guard.host_access_changed.hint": "以下是现在的各行：\n{lines}\n\n每一行都把此服务器的某些东西交给容器，采用该堆栈等同于 root。请重新阅读：接受的就是摆在您面前的内容。如果您仍想采用它：{command}"
+  "serverText.compose_guard.host_access_changed.hint": "以下是现在的各行：\n{lines}\n\n每一行都把此服务器的某些东西交给容器，采用该堆栈等同于 root。请重新阅读：接受的就是摆在您面前的内容。如果您仍想采用它：{command}",
+  "auth.passkeyLeftOpen": "此浏览器没有关闭登录页面的通行密钥请求，这通常是密码管理器扩展造成的。请刷新页面将其关闭，然后重试。为避免再次发生，Noust 不再在此浏览器的名称字段中提供通行密钥：通行密钥按钮照常可用。",
+  "auth.passkeyReload": "刷新页面"
 }

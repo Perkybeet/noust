@@ -361,5 +361,7 @@ export const auth: Catalog<typeof en> = {
   },
   signOutFailed: "No se pudo cerrar la sesión",
   signedOut: "Sesión cerrada",
-  passkeyStillClosing: "El navegador todavía estaba cerrando otra ventana de llaves de acceso. Vuelve a intentarlo.",
+  passkeyStillClosing: "El navegador todavía tiene abierta otra petición de llaves de acceso. Recarga la página para cerrarla y vuelve a intentarlo.",
+  passkeyLeftOpen: "Este navegador ha dejado abierta la petición de llaves de acceso de la pantalla de entrada; suele hacerlo la extensión de un gestor de contraseñas. Recarga la página para cerrarla y vuelve a intentarlo. Para que no se repita, Noust ya no ofrece llaves en el campo del nombre en este navegador: el botón de la llave de acceso funciona igual.",
+  passkeyReload: "Recargar la página",
 };

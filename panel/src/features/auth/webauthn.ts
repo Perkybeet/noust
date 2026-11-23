@@ -16,6 +16,14 @@
  * is over, a moment after its promise settles. The two ceremonies below go through one gate
  * (`ceremony`) that never lets two overlap, and that asks again, a few times and briefly, when the
  * browser answers that the previous one is still closing.
+ *
+ * What takes the browser's place does not always end what it is told to end. A password manager's
+ * extension answers `navigator.credentials` itself, and one that hands the autofill ceremony of the
+ * sign-in page on to the browser and does not end it when the page does leaves the browser with a
+ * request open for as long as the document lives: every ceremony after it is refused as "pending",
+ * however long the page waits. Only a new document closes it. So when the waits run out the error
+ * says to reload the page, and when an autofill ceremony was opened in this document the browser is
+ * remembered as one that leaves it open and is not offered the autofill again.
  */
 
 import { getLocale } from "../../app/locale";
@@ -74,10 +82,36 @@ export function browserLimit(): BrowserLimit | null {
   return null;
 }
 
-/** Whether the browser offers passkeys in a field's autofill (conditional UI). */
+/** Where a browser is remembered as one that leaves the autofill ceremony open after the page ended it. */
+export const AUTOFILL_LEFT_OPEN_KEY = "noust.passkeys.autofill-left-open";
+
+/** An autofill ceremony was handed to the browser in this document: what a request left open is then put down to. */
+let autofillOpened = false;
+
+/** Whether this browser was seen leaving the autofill ceremony open. A browser that keeps nothing is asked every time. */
+export function autofillLeftOpen(): boolean {
+  try {
+    return globalThis.localStorage.getItem(AUTOFILL_LEFT_OPEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberAutofillLeftOpen(): void {
+  try {
+    globalThis.localStorage.setItem(AUTOFILL_LEFT_OPEN_KEY, "1");
+  } catch {
+    // A browser that keeps nothing meets it again at its next sign-in, and is told the same.
+  }
+}
+
+/**
+ * Whether the browser offers passkeys in a field's autofill (conditional UI). Not in a browser that was seen
+ * leaving that ceremony open: there the passkey is asked for with its button, which opens nothing ahead of time.
+ */
 export async function conditionalMediationAvailable(): Promise<boolean> {
   const check = statics()?.isConditionalMediationAvailable;
-  if (browserLimit() !== null || check === undefined) return false;
+  if (browserLimit() !== null || check === undefined || autofillLeftOpen()) return false;
   try {
     return await check.call(statics());
   } catch {
@@ -188,14 +222,17 @@ export class CeremonyError extends Error {
    * closing another passkey window). `describeError` reads it like the fix an API error carries.
    */
   readonly hint?: string;
+  /** Only a new document mends it: the browser has a request open that nothing on this page can end. */
+  readonly reload: boolean;
 
-  constructor(reason: string, message: string, hint?: string) {
+  constructor(reason: string, message: string, hint?: string, reload = false) {
     super(message);
     this.name = "CeremonyError";
     this.reason = reason;
     this.detail = message === "" ? reason : `${reason}: ${message}`;
     this.cancelled = reason === "NotAllowedError" || reason === "AbortError";
     if (hint !== undefined) this.hint = hint;
+    this.reload = reload;
   }
 }
 
@@ -243,6 +280,11 @@ export function setCeremonyPause(replacement: Pause | null): void {
   pause = replacement ?? realPause;
 }
 
+/** For tests: a new document, in which no autofill ceremony has been opened yet. */
+export function forgetAutofillOpened(): void {
+  autofillOpened = false;
+}
+
 /** The waits before each new attempt after a "pending" answer: 1.75 seconds in all, a little longer each time. */
 export const PENDING_RETRY_DELAYS_MS: readonly number[] = [250, 500, 1000];
 
@@ -254,8 +296,13 @@ async function withRetries<T>(call: () => Promise<T>, signal: AbortSignal): Prom
       const error = ceremonyError(cause);
       if (!isPendingRefusal(cause)) throw error;
       const delay = PENDING_RETRY_DELAYS_MS[retry];
-      // Still pending after the last wait: the browser's words, with what the console knows of them above.
-      if (delay === undefined) throw new CeremonyError(error.reason, error.message, translate(getLocale(), "auth.passkeyStillClosing"));
+      // Still pending after the last wait: no wait ends it, a new document does. The browser's words, with what the
+      // console knows of them above; and a browser that was handed an autofill ceremony here is not handed another.
+      if (delay === undefined) {
+        const leftOpen = autofillOpened;
+        if (leftOpen) rememberAutofillLeftOpen();
+        throw new CeremonyError(error.reason, error.message, translate(getLocale(), leftOpen ? "auth.passkeyLeftOpen" : "auth.passkeyStillClosing"), true);
+      }
       await pause(delay);
       if (signal.aborted) throw new CeremonyError("AbortError", "");
     }
@@ -350,6 +397,7 @@ export interface GetOptions {
 /** Asks for a passkey (sign-in or confirmation); the returned JSON goes back to the server. */
 export function getPasskey(json: JsonObject, { mediation, signal }: GetOptions = {}): Promise<JsonObject> {
   return ceremony(mediation === "conditional", signal, async (own) => {
+    if (mediation === "conditional") autofillOpened = true;
     const credential = await navigator.credentials.get({
       publicKey: requestOptions(json),
       ...(mediation !== undefined ? { mediation } : {}),

@@ -30,6 +30,7 @@ import { BackupCodesDialog } from "./BackupCodes";
 import { suggestedName } from "./passkeyName";
 import { passkeyKeys, passkeysQuery, registerPasskey, removePasskey, renamePasskey } from "./passkeys";
 import type { Passkey, PasskeyAvailability } from "./passkeys";
+import { passkeyRemedy } from "./passkeyRemedy";
 import { CeremonyError, browserLimit } from "./webauthn";
 
 /** Why passkeys cannot work from this page, as the server and then the browser know it. */
@@ -176,7 +177,7 @@ function AddDialog({ onClose }: { onClose: () => void }) {
             }}
           />
         </Field>
-        {failure !== null ? <ErrorBlock live compact error={failure} title={t("auth.passkeys.addFailed")} /> : null}
+        {failure !== null ? <ErrorBlock live compact error={failure} title={t("auth.passkeys.addFailed")} action={passkeyRemedy(failure, t)} /> : null}
       </form>
     </Dialog>
   );

@@ -31,6 +31,7 @@ import { forgetAccessToken, holdAccessToken } from "./accessProof";
 import { AuthFrame } from "./AuthFrame";
 import { hasNoAccounts, newTokenCommand, tokenShownBy } from "./firstStart";
 import { factorOffer, offerTo, returnOf } from "./later";
+import { passkeyRemedy } from "./passkeyRemedy";
 import { signInWithPasskey } from "./passkeys";
 import { pendingChecks } from "./requireSession";
 import { rememberSignIn } from "./signInFacts";
@@ -607,7 +608,7 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
       ) : null}
       {locked ? <LockedNotice t={t} remaining={remaining} /> : null}
       {failure !== null ? (
-        <ErrorBlock live compact error={failure.error} title={failure.title} {...(failure.hint !== undefined ? { hint: failure.hint } : {})} />
+        <ErrorBlock live compact error={failure.error} title={failure.title} {...(failure.hint !== undefined ? { hint: failure.hint } : {})} action={passkeyRemedy(failure.error, t)} />
       ) : unreachable !== null ? (
         <ErrorBlock compact error={unreachable} title={t("auth.signInFailed")} />
       ) : null}

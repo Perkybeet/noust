@@ -365,5 +365,7 @@ export const auth = {
   },
   signOutFailed: "Sign out failed",
   signedOut: "Signed out",
-  passkeyStillClosing: "The browser was still closing another passkey window. Try again.",
+  passkeyStillClosing: "The browser still has another passkey request open. Reload the page to close it, then try again.",
+  passkeyLeftOpen: "This browser left open the passkey request of the sign-in page, which a password manager's extension usually does. Reload the page to close it, then try again. So that it does not happen again, Noust no longer offers passkeys in the name field in this browser: the passkey button works as before.",
+  passkeyReload: "Reload the page",
 } as const;

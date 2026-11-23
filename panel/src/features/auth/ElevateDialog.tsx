@@ -17,6 +17,7 @@ import { useT } from "../../i18n";
 import { spokenDuration } from "../settings/security";
 import { cancelElevation, resolveElevation, useElevationRequested } from "./elevation";
 import { usePasswordAsked } from "./identityProof";
+import { passkeyRemedy } from "./passkeyRemedy";
 import { elevateWithPasskey, passkeysQuery } from "./passkeys";
 import { CeremonyError, browserLimit } from "./webauthn";
 
@@ -271,10 +272,10 @@ export function ElevateDialog() {
                 disabled={pending !== null}
               />
             </Field>
-            {failure !== null ? <ErrorBlock live compact error={failure.error} title={failure.title} /> : null}
+            {failure !== null ? <ErrorBlock live compact error={failure.error} title={failure.title} action={passkeyRemedy(failure.error, t)} /> : null}
           </form>
         ) : failure !== null ? (
-          <ErrorBlock live compact error={failure.error} title={failure.title} />
+          <ErrorBlock live compact error={failure.error} title={failure.title} action={passkeyRemedy(failure.error, t)} />
         ) : null}
         {keepsOpen !== null && !enrolling ? <p className="text-12 text-fg-muted">{keepsOpen}</p> : null}
       </div>
