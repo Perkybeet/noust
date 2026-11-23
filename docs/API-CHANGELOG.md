@@ -37,6 +37,11 @@ against the schema of 4.3.0.
 
 - The verdict of `GET /api/apps/{domain}/diagnose` is `degraded` only with a probable cause; a warning with
   nothing to do about it no longer changes it.
+- `POST /api/nodes/{node}/host-key` is held for a second person when approvals are on: the first call answers `202`
+  with `approval_required`, like `POST /api/nodes/{node}/rekey`, and the fingerprint in its body is what is
+  approved. `POST /api/nodes/{node}/host-key/scan` waits for nobody.
+- `GET /api/apps/{domain}/address` answers `kind: site` with its address for a static or PHP site on a server,
+  where it answered `none`.
 
 ## 4.3.0
 

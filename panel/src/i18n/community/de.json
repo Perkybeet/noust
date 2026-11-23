@@ -20734,6 +20734,8 @@
   "serverText.compose_adopt.no_site.text": "Keine Site in sites-available antwortet auf {domain}; der Webserver liefert unter diesem Namen nichts aus, bis es eine gibt.",
   "serverText.compose_adopt.site_not_enabled.text": "Die Site {site} ist nicht aktiviert.",
   "serverText.compose_adopt.loopback_only.text": "Er veröffentlicht seinen Port nur auf 127.0.0.1: Er ist vom NAS selbst aus erreichbar, aber nicht aus Ihrem Netzwerk. Veröffentlichen Sie ihn in Ihrer Compose-Datei im Netzwerk, oder erreichen Sie ihn über einen Reverse-Proxy auf dem NAS.",
+  "serverText.compose_adopt.restart_stopped.text": "{container} ist mit der Richtlinie '{policy}' angehalten: Nach einem Neustart des NAS startet nichts es wieder, und ohne eine Unit von Noust tut es auch sonst nichts.",
+  "serverText.compose_adopt.restart_policy.text": "{container} hat die Neustart-Richtlinie '{policy}': Nach einem Neustart des NAS startet nichts es wieder, und ohne eine Unit von Noust tut es auch sonst nichts. Noust ändert Ihre Compose-Datei nicht; fügen Sie dem Dienst restart: unless-stopped hinzu.",
   "serverText.security_checks.public_listener_anyone.text": "Diese Dienste lauschen auf allen Schnittstellen, und die Firewall lässt jeden darauf zugreifen.",
   "serverText.security_checks.public_listener_some.text": "Diese Dienste lauschen auf allen Schnittstellen, und die Firewall lässt einige Adressen darauf zugreifen.",
   "serverText.backup_destinations.unreachable.text": "Das Backup-Ziel {name} hat nicht geantwortet",

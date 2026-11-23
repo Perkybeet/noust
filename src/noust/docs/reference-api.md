@@ -1060,7 +1060,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/nodes` | Add Node | `fleet.manage` | yes | yes |
 | GET | `/api/nodes/{node}` | Get Node | `fleet.read` |  |  |
 | DELETE | `/api/nodes/{node}` | Remove Node | `fleet.manage` | yes | yes |
-| POST | `/api/nodes/{node}/host-key` | Accept Node Host Key | `fleet.manage` | yes |  |
+| POST | `/api/nodes/{node}/host-key` | Accept Node Host Key | `fleet.manage` | yes | yes |
 | POST | `/api/nodes/{node}/host-key/scan` | Scan Node Host Key | `fleet.manage` |  |  |
 | GET | `/api/nodes/{node}/inventory` | Get Node Inventory | `fleet.read` |  |  |
 | POST | `/api/nodes/{node}/inventory` | Apply Node Inventory | `fleet.manage` |  |  |

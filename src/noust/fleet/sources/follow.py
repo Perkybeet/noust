@@ -32,7 +32,7 @@ import hashlib
 import logging
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import quote
 
@@ -272,7 +272,40 @@ class Follower:
             )
         event = self._ending(source, follow, job, state)
         said, description = deployment_state(event)
+        if said == "success":
+            follow = self._answering(source, follow)
         return self._say(follow, said, description, final=True)
+
+    @staticmethod
+    def _answering(source: NodeSource, follow: Follow) -> Follow:
+        """
+        Ask the server where the application it just deployed answers.
+
+        The application is on the server and its edge decides where it is reached: its domain over
+        HTTPS behind a site, its machine and a port where there is none. The central cannot say it for
+        a machine that is not its own, so it asks the server's own answer to the question
+        (``GET /api/apps/{domain}/address``, the card the console shows) rather than guess a name.
+
+        Args:
+            source: The server.
+            follow: The follow, with the address it was recorded with.
+
+        Returns:
+            The follow with the server's address; the same follow when the server does not say (one
+            before 4.3 has no such route, or the application answers nowhere), which keeps the address
+            it was recorded with.
+        """
+        try:
+            card = source.get(f"/api/apps/{quote(follow.domain, safe='')}/address")
+        except Failure as failure:
+            logger.info(
+                "Could not ask %s where %s answers: %s", follow.node, follow.domain, failure.message
+            )
+            return follow
+        url = card.get("url") if isinstance(card, Mapping) else None
+        if not isinstance(url, str) or not url:
+            return follow
+        return replace(follow, environment_url=url)
 
     def _ending(
         self, source: NodeSource, follow: Follow, job: Mapping[str, Any], state: str

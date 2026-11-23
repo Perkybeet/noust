@@ -70,9 +70,18 @@ root on the host by another name need a second person: raw units, cron commands,
 raw site configuration, deploy hooks, moving an application to its own account and building as
 root (`root_equivalent`); SQL that writes, row edits
 and `EXPLAIN ANALYZE` included; deploying from a directory on the server; adding and removing
-fleet servers; opening a root shell on the server in the browser (see
+fleet servers, giving one a new key, moving it to the tunnel account and accepting its new SSH host
+key; opening a root shell on the server in the browser (see
 [Terminal and one-off commands](terminal.md)); and role grants. The OpenAPI schema marks those
 routes with `x-noust-requires-approval`.
+
+Accepting the new SSH host key of a server (`POST /api/nodes/{node}/host-key`) decides which machine the
+central connects to, as a new key does. The fingerprint is a field of the call, so it is in what is
+approved: the person who decides reads the fingerprint that is going to be accepted, and an approval
+for one fingerprint runs no other. The central also compares it again with what the server presents
+when the call runs, and refuses it if that is another key. Looking at what a server presents
+(`POST /api/nodes/{node}/host-key/scan`) changes nothing and waits for nobody. At the terminal, as root,
+`noust node host-key` is the emergency channel like the rest of the CLI.
 
 A role grant is anything that leaves somebody able to do more than before, by whichever route:
 

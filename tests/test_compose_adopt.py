@@ -483,6 +483,22 @@ def test_what_a_plan_warns_of_is_a_sentence_of_the_catalog_and_the_uncoded_ones_
     )
 
 
+def test_what_a_restart_of_the_machine_would_leave_down_is_said_as_sentences() -> None:
+    from noust.core.server_text import ServerText
+    from noust.deployers.compose_adopt import LostOnRestart, _restart_warnings
+
+    said = _restart_warnings(
+        [LostOnRestart("web", "no", "policy"), LostOnRestart("db", "unless-stopped", "stopped")]
+    )
+
+    assert all(isinstance(item, ServerText) for item in said)
+    assert [item.code for item in said] == [
+        "compose_adopt.restart_policy",
+        "compose_adopt.restart_stopped",
+    ]
+    assert "add restart: unless-stopped to the service" in said[0].text
+
+
 def test_a_domain_already_deployed_is_refused(
     root: Path, docker: Docker, web: NginxManager, store: NoustStore
 ) -> None:

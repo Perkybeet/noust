@@ -8498,7 +8498,7 @@ class Nodes:
 
         Accept Node Host Key
 
-        Needs: permission `fleet.manage`, sudo mode."""
+        Needs: permission `fleet.manage`, sudo mode, a second person's approval can be required."""
         return self._call("POST", f"/api/nodes/{quote(str(node), safe='')}/host-key", query=None, body=body)
 
     def scan_node_host_key(self, node: str) -> "HostKeyReadingOut":

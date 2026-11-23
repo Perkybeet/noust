@@ -75,6 +75,8 @@ SENTENCES: dict[str, str] = {
     "compose_adopt.no_site": "No site in sites-available answers on {domain}; nothing serves it through the web server until one does.",
     "compose_adopt.site_not_enabled": "The site {site} is not enabled.",
     "compose_adopt.loopback_only": "It publishes its port on 127.0.0.1 only: it is reachable from the NAS itself and not from your network. Publish it on the network in your compose file, or reach it through a reverse proxy on the NAS.",
+    "compose_adopt.restart_stopped": "{container} is stopped under the policy '{policy}': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does.",
+    "compose_adopt.restart_policy": "{container} has the restart policy '{policy}': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.",
     # -- What a deployment is refused with -------------------------------------------------------------
     "compose_guard.asks_for_root": "{domain}'s compose file asks for root on this server",
     "compose_guard.asks_for_root.hint": "{lines}\n\nThe compose file comes from the repository and Docker runs it as root: what is listed above gives a container this server, and the stack did not run with it before. Remove it, or record why this stack needs it and deploy again: {command}",

@@ -5964,6 +5964,12 @@ export const serverText = {
     loopback_only: {
       text: "It publishes its port on 127.0.0.1 only: it is reachable from the NAS itself and not from your network. Publish it on the network in your compose file, or reach it through a reverse proxy on the NAS.",
     },
+    restart_stopped: {
+      text: "{container} is stopped under the policy '{policy}': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does.",
+    },
+    restart_policy: {
+      text: "{container} has the restart policy '{policy}': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.",
+    },
   },
   security_checks: {
     public_listener_anyone: {

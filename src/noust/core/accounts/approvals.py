@@ -344,6 +344,15 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
         KIND_INFRASTRUCTURE,
         "Moving a server of this fleet onto the restricted tunnel account.",
     ),
+    # Taking the new SSH host key of a server decides which machine the central connects to, as a new key
+    # does. The fingerprint is a field of the call, not a credential: it is in the call's fingerprint and
+    # in what the person who decides reads, and the manager compares it again with what answers when the
+    # call runs, so an approval for one key never takes another.
+    ("POST", "/api/nodes/{node}/host-key"): ApprovalRule(
+        "fleet.node.host_key",
+        KIND_INFRASTRUCTURE,
+        "Accepting the new SSH host key of a server of this fleet.",
+    ),
     # Opening the root-equivalent console to the internet, even behind a second factor.
     ("POST", "/api/console/exposure"): ApprovalRule(
         "console.expose",

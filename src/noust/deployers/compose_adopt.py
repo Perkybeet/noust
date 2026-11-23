@@ -1172,7 +1172,7 @@ def _lost_on_restart(
     )
 
 
-def _restart_warnings(lost: Sequence[LostOnRestart]) -> list[str]:
+def _restart_warnings(lost: Sequence[LostOnRestart]) -> list[ServerText]:
     """
     Say, once each, what a restart of the machine would leave down.
 
@@ -1180,23 +1180,19 @@ def _restart_warnings(lost: Sequence[LostOnRestart]) -> list[str]:
         lost: What would not come back.
 
     Returns:
-        One sentence per container, with the line that fixes it; Noust does not write it, because the
-        compose file is the operator's.
+        One sentence of the catalog per container, with the line that fixes it for one whose policy is the
+        problem; Noust does not write it, because the compose file is the operator's.
     """
-    said = []
-    for item in lost:
-        if item.why == "stopped":
-            said.append(
-                f"{item.container} is stopped under the policy '{item.policy}': after the NAS restarts "
-                "nothing starts it again, and without a unit of Noust's nothing else does."
-            )
-        else:
-            said.append(
-                f"{item.container} has the restart policy '{item.policy}': after the NAS restarts "
-                "nothing starts it again, and without a unit of Noust's nothing else does. Noust does "
-                "not change your compose file; add restart: unless-stopped to the service."
-            )
-    return said
+    return [
+        say(
+            "compose_adopt.restart_stopped"
+            if item.why == "stopped"
+            else "compose_adopt.restart_policy",
+            container=item.container,
+            policy=item.policy,
+        )
+        for item in lost
+    ]
 
 
 def guard_running_stack(

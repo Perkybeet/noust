@@ -43,6 +43,12 @@ Three more things, outside the stacks:
 - **`noust app diagnose` says "healthy" where it said "degraded" with no cause.** Whoever reads `verdict` from
   `--json` or from the API sees the change; the warnings are still listed.
 - **`noust backup resend --json` has one more field**, `busy`: the copies another pass was already sending.
+- **Accepting a server's new SSH host key waits for a second person where approvals are on.**
+  `POST /api/nodes/{node}/host-key` answers `202` with `approval_required`, like `rekey` does, and runs when
+  the same call is made again with the approval; a script that accepted a key in one call needs the approval
+  first. At the terminal, as root, `noust node host-key` is unchanged.
+- **The address card says a static or PHP site is reached by its name.** `GET /api/apps/{domain}/address` and
+  `noust status` said it served no web (`kind: none`); they say `site` with its address now.
 
 Check: run `noust setup compose-gate`, then `noust health`. Every stack is under the check
 (`grep -c "app compose gate" /etc/systemd/system/<app>.service` says 2) or named, with the reason, in

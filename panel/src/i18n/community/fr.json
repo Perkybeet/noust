@@ -20742,6 +20742,8 @@
   "serverText.compose_adopt.no_site.text": "Aucun site de sites-available ne répond sur {domain} ; le serveur web ne sert rien sous ce nom tant qu'il n'y en a pas.",
   "serverText.compose_adopt.site_not_enabled.text": "Le site {site} n'est pas activé.",
   "serverText.compose_adopt.loopback_only.text": "Il ne publie son port que sur 127.0.0.1 : il est joignable depuis le NAS lui-même, mais pas depuis votre réseau. Publiez-le sur le réseau dans votre fichier compose, ou passez par un reverse proxy sur le NAS.",
+  "serverText.compose_adopt.restart_stopped.text": "{container} est arrêté avec la politique '{policy}' : après le redémarrage du NAS, rien ne le relance, et sans unité de Noust rien d'autre ne le fait.",
+  "serverText.compose_adopt.restart_policy.text": "{container} a la politique de redémarrage '{policy}' : après le redémarrage du NAS, rien ne le relance, et sans unité de Noust rien d'autre ne le fait. Noust ne modifie pas votre fichier compose ; ajoutez restart: unless-stopped au service.",
   "serverText.security_checks.public_listener_anyone.text": "Ces services écoutent sur toutes les interfaces et le pare-feu laisse n'importe qui y accéder.",
   "serverText.security_checks.public_listener_some.text": "Ces services écoutent sur toutes les interfaces et le pare-feu laisse certaines adresses y accéder.",
   "serverText.backup_destinations.unreachable.text": "La destination de sauvegarde {name} n'a pas répondu",

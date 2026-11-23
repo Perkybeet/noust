@@ -193,6 +193,13 @@ def test_what_would_not_come_back_after_the_nas_restarts_is_said_and_not_changed
     assert "proggest-backend" in text and "restart: unless-stopped" in text
     assert "another-web" not in text
     assert (root / "docker-compose.prod.yml").read_bytes() == before
+    # Each is a sentence of the catalog, so the console says it in its own language.
+    said = {item.code: dict(item.params) for item in plan.warnings_coded if item is not None}
+    assert said["compose_adopt.restart_policy"] == {"container": "proggest-backend", "policy": "no"}
+    assert said["compose_adopt.restart_stopped"] == {
+        "container": "proggest-redis",
+        "policy": "unless-stopped",
+    }
 
 
 def test_a_server_does_not_say_what_a_restart_would_lose_because_its_unit_brings_the_stack_back(

@@ -426,7 +426,7 @@ only what recovering an account takes.
 
 <!-- generated:routes -->
 - **1259** API operations. **1215** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **407** operations need sudo mode and **60** can need a second person.
+- **407** operations need sudo mode and **61** can need a second person.
 - **7** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |

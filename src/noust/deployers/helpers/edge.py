@@ -323,13 +323,17 @@ def reached(app: App, *, runner: CommandRunner | None = None) -> Reached:
         runner: Asks Docker the machine's name; the process-wide one by default.
 
     Returns:
-        Its address by this machine's edge: the domain behind a site (over HTTPS when it has a
-        certificate), ``http://<machine>:<port>`` without one, and nothing for what serves no web.
+        Its address by this machine's edge, which is :func:`answers_at`'s answer and no other: the domain
+        behind a site (over HTTPS when it has a certificate), ``http://<machine>:<port>`` without one, and
+        nothing for what serves no web. A static or PHP site has no port and is served behind a site by
+        its name, so it is reached there; on a machine with no site nothing serves it. What has neither a
+        port nor a site to be served by (a worker) is reached nowhere.
     """
-    if not app.port:
+    has_site = edge().has_site
+    if not app.port and not (has_site and app.is_static):
         return Reached("none", None, None)
-    where = answers_at(app.domain, ssl=bool(app.ssl_enabled), port=app.port, runner=runner)
-    return Reached("site" if edge().has_site else "port", where, app.port)
+    where = answers_at(app.domain, ssl=bool(app.ssl_enabled), port=app.port or None, runner=runner)
+    return Reached("site" if has_site else "port", where, app.port or None)
 
 
 @dataclass(frozen=True)

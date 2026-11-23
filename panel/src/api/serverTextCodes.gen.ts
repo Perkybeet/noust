@@ -448,6 +448,8 @@ export const SERVER_TEXT = {
   "compose_adopt.no_site": { text: ["domain"], hint: null, commands: [] },
   "compose_adopt.nothing_ran": { text: ["file", "project"], hint: null, commands: [] },
   "compose_adopt.nothing_ran_named": { text: ["file"], hint: null, commands: [] },
+  "compose_adopt.restart_policy": { text: ["container", "policy"], hint: null, commands: [] },
+  "compose_adopt.restart_stopped": { text: ["container", "policy"], hint: null, commands: [] },
   "compose_adopt.site_not_enabled": { text: ["site"], hint: null, commands: [] },
   "compose_gate.cannot_tell": { text: ["domain"], hint: ["problem", "update_command"], commands: ["update_command"] },
   "compose_gate.edited": { text: ["domain", "start"], hint: ["retry_command"], commands: ["retry_command"] },

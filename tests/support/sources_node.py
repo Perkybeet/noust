@@ -58,6 +58,8 @@ class SourcesNode:
         answer: What an event is answered with (status and body), given the event's body.
         deployments: ``id`` to a deployment as ``GET /api/deployments/{id}`` shows it.
         previews: Parent domain to the previews ``GET .../previews`` lists.
+        addresses: Domain to the card ``GET .../address`` answers: where the application is reached on
+            this node. A domain it holds none for is answered 404, as a node before 4.3 does.
         lease_status: Status to answer a lease PUT with instead of taking it.
     """
 
@@ -71,6 +73,7 @@ class SourcesNode:
     answer: Callable[[dict[str, Any]], tuple[int, dict[str, Any]]] | None = None
     deployments: dict[int, dict[str, Any]] = field(default_factory=dict)
     previews: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    addresses: dict[str, dict[str, Any]] = field(default_factory=dict)
     lease_status: int | None = None
 
     def __post_init__(self) -> None:
@@ -133,6 +136,13 @@ class SourcesNode:
             if known is None:
                 return httpx.Response(404, json={"error": "not_found"})
             return httpx.Response(200, json=known)
+        found = re.fullmatch(r"/api/apps/([^/]+)/address", path)
+        if found and method == "GET":
+            self.node.requests.append(request)
+            card = self.addresses.get(found.group(1))
+            if card is None:
+                return httpx.Response(404, json={"error": "not_found"})
+            return httpx.Response(200, json=card)
         found = re.fullmatch(r"/api/apps/([^/]+)/previews", path)
         if found and method == "GET":
             self.node.requests.append(request)

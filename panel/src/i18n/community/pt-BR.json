@@ -20742,6 +20742,8 @@
   "serverText.compose_adopt.no_site.text": "Nenhum site de sites-available responde em {domain}; o servidor web não serve nada nesse nome até que exista um.",
   "serverText.compose_adopt.site_not_enabled.text": "O site {site} não está ativado.",
   "serverText.compose_adopt.loopback_only.text": "Ele publica a porta somente em 127.0.0.1: é acessível a partir do próprio NAS, mas não da sua rede. Publique-o na rede no seu arquivo compose ou acesse-o por meio de um proxy reverso no NAS.",
+  "serverText.compose_adopt.restart_stopped.text": "{container} está parado com a política '{policy}': depois que o NAS reiniciar, nada o inicia de novo e, sem uma unidade do Noust, mais nada o faz.",
+  "serverText.compose_adopt.restart_policy.text": "{container} tem a política de reinício '{policy}': depois que o NAS reiniciar, nada o inicia de novo e, sem uma unidade do Noust, mais nada o faz. O Noust não altera o seu arquivo compose; adicione restart: unless-stopped ao serviço.",
   "serverText.security_checks.public_listener_anyone.text": "Esses serviços escutam em todas as interfaces e o firewall deixa qualquer pessoa chegar até eles.",
   "serverText.security_checks.public_listener_some.text": "Esses serviços escutam em todas as interfaces e o firewall deixa alguns endereços chegar até eles.",
   "serverText.backup_destinations.unreachable.text": "O destino de backup {name} não respondeu",

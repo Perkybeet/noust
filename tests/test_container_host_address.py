@@ -69,6 +69,31 @@ def client(store: NoustStore) -> TestClient:
     return TestClient(app)
 
 
+def test_a_static_site_on_a_server_is_reached_by_its_name(
+    client: TestClient, store: NoustStore
+) -> None:
+    # It has no port and is served by the site: the card used to say it serves no web.
+    store.create_app(
+        App(
+            domain="docs.example.com",
+            app_type="static",
+            is_static=True,
+            port=None,
+            app_path="/x",
+            ssl_enabled=True,
+        )
+    )
+
+    body = client.get("/api/apps/docs.example.com/address").json()
+
+    assert (body["kind"], body["url"], body["port"], body["proxy_hint"]) == (
+        "site",
+        "https://docs.example.com",
+        None,
+        None,
+    )
+
+
 def test_on_a_container_host_it_is_the_port_of_the_machine(
     client: TestClient, container_host: None
 ) -> None:

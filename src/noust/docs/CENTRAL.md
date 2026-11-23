@@ -118,7 +118,11 @@ add it again.
 
 Over the API it is two routes, `POST /api/nodes/{node}/host-key/scan` (the two fingerprints, changes nothing)
 and `POST /api/nodes/{node}/host-key` with `{"fingerprint": "SHA256:..."}` (needs sudo mode), both with the
-permission to manage the fleet. Taking the key, or refusing it, is audited as `fleet.node.host_key`.
+permission to manage the fleet. Taking the key, or refusing it, is audited as `fleet.node.host_key`. When
+approvals are on, taking it waits for a second person, like a new key does ([Sudo mode and four-eyes
+approvals](security-approvals.md#four-eyes-approvals)): the fingerprint is part of what is approved, so the
+person who decides sees the one that will be accepted, and an approval for one fingerprint never takes
+another.
 
 The rest of this guide is on pages of its own:
 

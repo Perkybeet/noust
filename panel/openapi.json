@@ -123953,6 +123953,11 @@
           "Nodes"
         ],
         "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.node.host_key",
+          "kind": "infrastructure",
+          "when": "always"
+        },
         "x-noust-requires-elevation": true
       }
     },

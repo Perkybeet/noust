@@ -20314,6 +20314,8 @@
   "serverText.compose_adopt.no_site.text": "sites-available 中没有任何站点响应 {domain}；在有站点之前，Web 服务器不会通过该名称提供任何内容。",
   "serverText.compose_adopt.site_not_enabled.text": "站点 {site} 未启用。",
   "serverText.compose_adopt.loopback_only.text": "它只在 127.0.0.1 上发布端口：可以从 NAS 本机访问，但无法从你的网络访问。请在 compose 文件中把它发布到网络上，或通过 NAS 上的反向代理访问它。",
+  "serverText.compose_adopt.restart_stopped.text": "{container} 在策略 '{policy}' 下处于停止状态：NAS 重启后没有任何东西会再次启动它，而没有 Noust 的单元，也没有别的东西会这样做。",
+  "serverText.compose_adopt.restart_policy.text": "{container} 的重启策略是 '{policy}'：NAS 重启后没有任何东西会再次启动它，而没有 Noust 的单元，也没有别的东西会这样做。Noust 不会修改你的 compose 文件；请在该服务中加上 restart: unless-stopped。",
   "serverText.security_checks.public_listener_anyone.text": "这些服务监听所有网络接口,而防火墙允许任何人访问它们。",
   "serverText.security_checks.public_listener_some.text": "这些服务监听所有网络接口,而防火墙允许部分地址访问它们。",
   "serverText.backup_destinations.unreachable.text": "备份目标 {name} 没有响应",

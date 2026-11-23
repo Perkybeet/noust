@@ -439,6 +439,9 @@ class Forwarder:
                     repository=forward.repository,
                     installation_id=installation,
                     ref=forward.commit or forward.ref,
+                    # Only what the follow keeps until the server is asked: the application is on the server,
+                    # whose edge says where it answers (the follower asks it when the deployment succeeded),
+                    # and this central cannot say it for a machine that is not its own.
                     environment_url=f"https://{domain}",
                 )
 

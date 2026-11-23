@@ -1375,6 +1375,146 @@ class TestFleet:
         assert use["details"]["approved_by"]["name"] == "sam"
 
 
+class TestAcceptingAHostKeyWaitsForASecondPerson:
+    """What a central connects to is a decision of two people, and the fingerprint is part of the call."""
+
+    OLD = "SHA256:" + "a" * 43
+    FIRST = "SHA256:" + "b" * 43
+    SECOND = "SHA256:" + "c" * 43
+
+    @pytest.fixture
+    def nodes(self, store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+        from noust.core.store import NodeRecord
+        from noust.fleet.host_keys import HostKeyAccepted
+        from noust.web.api import nodes as nodes_api
+
+        store.save_node(
+            NodeRecord(
+                name="web-2",
+                ssh_host="web2.example.com",
+                ssh_port=22,
+                ssh_user="noust-tunnel",
+                host_key="noust-node-web-2 ssh-ed25519 AAAA",
+                console_port=8080,
+                status="reachable",
+            )
+        )
+        accepted: list[tuple[str, str]] = []
+
+        class Registry:
+            def get(self, name: str) -> NodeRecord:
+                found = store.get_node(name)
+                assert found is not None
+                return found
+
+            def accept_host_key(
+                self, name: str, *, fingerprint: str, actor: str | None = None
+            ) -> HostKeyAccepted:
+                accepted.append((name, fingerprint))
+                return HostKeyAccepted(
+                    name, TestAcceptingAHostKeyWaitsForASecondPerson.OLD, fingerprint, True
+                )
+
+        monkeypatch.setattr(nodes_api, "node_manager", lambda: Registry())
+        monkeypatch.setattr(
+            nodes_api,
+            "describe",
+            lambda record, *args, **kwargs: nodes_api.NodeResponse(
+                name=record.name,
+                ssh_host=record.ssh_host,
+                ssh_port=record.ssh_port,
+                ssh_user=record.ssh_user,
+                host_key=record.host_key,
+                console_port=record.console_port,
+                status="reachable",
+            ),
+        )
+        return accepted
+
+    def test_the_key_is_not_taken_until_a_second_person_has_seen_the_fingerprint(
+        self, app: Any, nodes: list[tuple[str, str]], policy: dict[str, Any]
+    ) -> None:
+        alice = Person(app, "alice", "admin")
+        sam = Person(app, "sam", "security")
+        alice.elevate()
+        sam.elevate()
+
+        asked = alice.post("/api/nodes/web-2/host-key", {"fingerprint": self.FIRST})
+
+        assert asked.status_code == 202, asked.text
+        assert asked.json()["error"] == "approval_required"
+        assert nodes == []
+        approval_id = asked.headers["X-Noust-Approval-Request"]
+        # The one who decides reads the fingerprint that is going to be accepted.
+        waiting = sam.client.get("/api/approvals", params={"state": "requested"}).json()
+        (request,) = waiting["approvals"]
+        assert request["action"] == "fleet.node.host_key"
+        assert request["parameters"]["path"] == "/api/nodes/web-2/host-key"
+        assert request["parameters"]["body"] == {"fingerprint": self.FIRST}
+        assert sam.post(f"/api/approvals/{approval_id}/approve", {}).status_code == 200
+
+        ran = alice.post(
+            "/api/nodes/web-2/host-key",
+            {"fingerprint": self.FIRST},
+            **{"X-Noust-Approval": approval_id},
+        )
+
+        assert ran.status_code == 200, ran.text
+        assert nodes == [("web-2", self.FIRST)]
+
+    def test_an_approval_for_one_fingerprint_does_not_take_another(
+        self, app: Any, nodes: list[tuple[str, str]], policy: dict[str, Any]
+    ) -> None:
+        alice = Person(app, "alice", "admin")
+        sam = Person(app, "sam", "security")
+        alice.elevate()
+        sam.elevate()
+        approval_id = alice.post("/api/nodes/web-2/host-key", {"fingerprint": self.FIRST}).headers[
+            "X-Noust-Approval-Request"
+        ]
+        sam.post(f"/api/approvals/{approval_id}/approve", {})
+
+        swapped = alice.post(
+            "/api/nodes/web-2/host-key",
+            {"fingerprint": self.SECOND},
+            **{"X-Noust-Approval": approval_id},
+        )
+
+        assert swapped.status_code == 409
+        assert swapped.json()["error"] == "approval_mismatch"
+        assert nodes == []
+
+    def test_looking_at_what_a_server_presents_asks_nobody(
+        self,
+        app: Any,
+        nodes: list[tuple[str, str]],
+        store: NoustStore,
+        policy: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from noust.fleet.host_keys import HostKeyReading
+        from noust.web.api import nodes as nodes_api
+
+        first, old = self.FIRST, self.OLD
+
+        class Looking:
+            def get(self, name: str) -> Any:
+                return store.get_node(name)
+
+            def read_host_key(self, name: str) -> HostKeyReading:
+                return HostKeyReading(name, "root@web2:22", old, first, "ssh-ed25519 AAAA", True)
+
+        monkeypatch.setattr(nodes_api, "node_manager", lambda: Looking())
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+
+        looked = alice.post("/api/nodes/web-2/host-key/scan")
+
+        assert looked.status_code == 200, looked.text
+        assert looked.json()["presented"] == self.FIRST
+        assert nodes == []
+
+
 class TestCost:
     def test_a_call_no_rule_covers_is_left_alone_before_its_body_is_read(
         self, app: Any, policy: dict[str, Any], monkeypatch: pytest.MonkeyPatch

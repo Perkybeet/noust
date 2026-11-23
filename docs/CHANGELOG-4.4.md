@@ -59,6 +59,13 @@ What was left over from the check that holds a stack's start to what was judged 
   machine.** They were always `https://` and the application's name, also where there is no site and no
   certificate: a central that deploys on its own machine answers at the machine and a port. They ask the same
   thing the card at the end of a deployment and a recipe's notes ask.
+- **The address card and `noust status` reach a static or PHP site by its name.** On a server they said it served
+  no web, because it has no port; they ask the same answer as the variable now, so the card, the variable and
+  the status of a code host cannot disagree.
+- **The status a central writes on GitHub for a deployment on a server carries the address the server says.**
+  The application is on the server, whose edge decides where it answers (its machine and a port where it has no
+  site), and the central cannot say it for a machine that is not its own: when the deployment succeeded it asks
+  the server's address card, and keeps the one it recorded when a server before 4.3 has none.
 
 ## Fleet
 
@@ -67,10 +74,17 @@ What was left over from the check that holds a stack's start to what was judged 
   command shows the key the central kept and the one the server presents now and goes on only with the
   fingerprint typed or given (`--fingerprint SHA256:...`); there is no way to accept it unseen. The API has it
   as two operations, the second in sudo mode ([CENTRAL.md](CENTRAL.md)).
+- **Accepting that key waits for a second person where `noust node rekey` does.** It decides which machine the
+  central connects to, as a new key does. The fingerprint is part of the call that is approved, so whoever decides
+  sees the one that will be accepted, an approval for one fingerprint takes no other, and the central compares it
+  again with what the server presents when the call runs ([Sudo mode and four-eyes
+  approvals](security-approvals.md#four-eyes-approvals)).
 
 ## Adopting
 
 - **What adopting a stack warns about is said in the console's language**: a checkout with changes nobody
   committed, a stack with no site or with one that is not enabled, and a port published only on this machine.
+  The lines about what a restart of the machine would leave down (a container stopped, or whose restart policy
+  does not bring it back) are sentences too.
 
 ## Fixes

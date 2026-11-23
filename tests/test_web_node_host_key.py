@@ -162,6 +162,44 @@ class TestAccepting:
         assert route_requires_elevation(routes["/api/nodes/{node}/host-key"]) is True
         assert route_requires_elevation(routes["/api/nodes/{node}/host-key/scan"]) is False
 
+    def test_accepting_needs_a_second_person_when_approvals_are_on_and_looking_does_not(
+        self, rig: Rig
+    ) -> None:
+        from noust.core.accounts.approvals import one_time_fields, rule_for
+
+        schema = rig.world.client.app.openapi()
+        accept = schema["paths"]["/api/nodes/{node}/host-key"]["post"]
+        scan = schema["paths"]["/api/nodes/{node}/host-key/scan"]["post"]
+
+        assert accept.get("x-noust-requires-approval")
+        assert accept.get("x-noust-requires-elevation") is True
+        assert not scan.get("x-noust-requires-approval")
+        rule = rule_for("POST", "/api/nodes/{node}/host-key", [Permission.FLEET_MANAGE], {}, {})
+        assert rule is not None
+        assert (rule.action, rule.kind) == ("fleet.node.host_key", "infrastructure")
+        assert (
+            rule_for("POST", "/api/nodes/{node}/host-key/scan", [Permission.FLEET_MANAGE], {}, {})
+            is None
+        )
+        # The fingerprint is not a credential: it is what the second person is asked to accept.
+        assert one_time_fields("POST", "/api/nodes/{node}/host-key") == ()
+
+    def test_the_fingerprint_is_in_the_digest_and_in_what_the_decider_reads(self) -> None:
+        import json
+
+        from noust.core.accounts.approvals import snapshot
+
+        path = "/api/nodes/web-2/host-key"
+        first, shown = snapshot(
+            "POST", path, [], json.dumps({"fingerprint": NEW_FINGERPRINT}).encode()
+        )
+        other, _ = snapshot(
+            "POST", path, [], json.dumps({"fingerprint": PINNED_FINGERPRINT}).encode()
+        )
+
+        assert first != other
+        assert shown["body"] == {"fingerprint": NEW_FINGERPRINT}
+
     def test_a_team_member_may_not_accept(self, rig: Rig) -> None:
         response = rig.post("/api/nodes/web-2/host-key", who="dana", fingerprint=NEW_FINGERPRINT)
 

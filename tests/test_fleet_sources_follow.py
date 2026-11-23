@@ -145,6 +145,106 @@ class TestADeployment:
         (status,) = next(iter(github.deployment_statuses.values()))[-1:]
         assert status["environment_url"] == "https://shop.example.com"
 
+    def test_the_address_is_the_one_the_server_says_where_the_application_is(
+        self, follower: Follower, follows: Follows, node: SourcesNode, github: FakeGitHubApi
+    ) -> None:
+        # The application is on the server, whose edge decides where it answers: a server that is a
+        # container host answers on its machine and a port, whatever name the central recorded.
+        updating(follows)
+        node.addresses["shop.example.com"] = {
+            "domain": "shop.example.com",
+            "kind": "port",
+            "url": "http://nas-oficina:8081",
+            "port": 8081,
+        }
+        node.job("j1", "succeeded", deployment_id=9)
+        node.deployment(9, status="success")
+
+        follower.step()
+
+        (status,) = next(iter(github.deployment_statuses.values()))[-1:]
+        assert status["environment_url"] == "http://nas-oficina:8081"
+
+    def test_the_central_never_answers_for_a_machine_that_is_not_its_own(
+        self,
+        follower: Follower,
+        follows: Follows,
+        node: SourcesNode,
+        github: FakeGitHubApi,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # A central that deploys on its own machine has no site; the server it manages does.
+        from noust.core.config import Config
+
+        monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+        monkeypatch.setenv("NOUST_DEPLOY_HERE", "containers")
+        monkeypatch.setattr(
+            "noust.deployers.helpers.edge.machine_name", lambda _runner: "the-centrals-nas"
+        )
+        Config.reset_instance()
+        try:
+            updating(follows)
+            node.addresses["shop.example.com"] = {
+                "domain": "shop.example.com",
+                "kind": "site",
+                "url": "https://shop.example.com",
+                "port": 3000,
+            }
+            node.job("j1", "succeeded", deployment_id=9)
+            node.deployment(9, status="success")
+
+            follower.step()
+        finally:
+            Config.reset_instance()
+
+        (status,) = next(iter(github.deployment_statuses.values()))[-1:]
+        assert status["environment_url"] == "https://shop.example.com"
+
+    def test_a_server_that_does_not_say_leaves_what_was_recorded(
+        self, follower: Follower, follows: Follows, node: SourcesNode, github: FakeGitHubApi
+    ) -> None:
+        # A server before 4.3 has no such route: the follow keeps the address it was made with.
+        updating(follows)
+        node.job("j1", "succeeded", deployment_id=9)
+        node.deployment(9, status="success")
+
+        follower.step()
+
+        (status,) = next(iter(github.deployment_statuses.values()))[-1:]
+        assert status["environment_url"] == "https://shop.example.com"
+
+    def test_an_application_that_answers_nowhere_leaves_what_was_recorded(
+        self, follower: Follower, follows: Follows, node: SourcesNode, github: FakeGitHubApi
+    ) -> None:
+        updating(follows)
+        node.addresses["shop.example.com"] = {
+            "domain": "shop.example.com",
+            "kind": "none",
+            "url": None,
+            "port": None,
+        }
+        node.job("j1", "succeeded", deployment_id=9)
+        node.deployment(9, status="success")
+
+        follower.step()
+
+        (status,) = next(iter(github.deployment_statuses.values()))[-1:]
+        assert status["environment_url"] == "https://shop.example.com"
+
+    def test_the_address_is_asked_only_when_a_deployment_succeeded(
+        self, follower: Follower, follows: Follows, node: SourcesNode, github: FakeGitHubApi
+    ) -> None:
+        updating(follows)
+        node.addresses["shop.example.com"] = {"kind": "site", "url": "https://x.example.com"}
+
+        node.job("j1", "running")
+        follower.step()
+        node.job("j1", "failed", deployment_id=9, error="boom")
+        node.deployment(9, status="failed", error="boom")
+        follower.step()
+
+        assert not any(r.url.path.endswith("/address") for r in node.node.requests)
+
     def test_a_failure_says_the_first_line_of_why(
         self, follower: Follower, follows: Follows, node: SourcesNode, github: FakeGitHubApi
     ) -> None:

@@ -5953,6 +5953,12 @@ export const serverText: Catalog<typeof en> = {
     loopback_only: {
       text: "Publica su puerto solo en 127.0.0.1: se llega a él desde el propio NAS, pero no desde tu red. Publícalo en la red en tu archivo compose, o accede a él a través de un proxy inverso en el NAS.",
     },
+    restart_stopped: {
+      text: "{container} está detenido con la política '{policy}': cuando el NAS se reinicie nada lo vuelve a arrancar, y sin una unidad de Noust no lo hace nada más.",
+    },
+    restart_policy: {
+      text: "{container} tiene la política de reinicio '{policy}': cuando el NAS se reinicie nada lo vuelve a arrancar, y sin una unidad de Noust no lo hace nada más. Noust no cambia tu archivo compose; añade restart: unless-stopped al servicio.",
+    },
   },
   security_checks: {
     public_listener_anyone: {
