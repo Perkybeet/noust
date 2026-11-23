@@ -1,0 +1,1 @@
+import{Ir as e,Jn as t}from"./routes-work-Bx_5tOQE.js";import{n,t as r}from"./icons-CpCZf5Z-.js";import{t as i}from"./Menu-BcpOVfYe.js";var a=e();function o({name:e,children:o,align:s=`end`}){let c=t();return(0,a.jsx)(i,{align:s,trigger:(0,a.jsx)(n,{label:c(`common.rowActions`,{name:e}),icon:(0,a.jsx)(r.more,{}),size:`sm`,tooltip:!1}),children:o})}export{o as t};

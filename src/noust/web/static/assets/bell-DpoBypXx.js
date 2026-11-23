@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-WkwZ5CU-.js";import{Lr as t}from"./routes-work-Bx_5tOQE.js";var n=e(t(),1),r=0,i=new Set;function a(){r+=1;for(let e of i)e()}function o(){return(0,n.useSyncExternalStore)(e=>(i.add(e),()=>{i.delete(e)}),()=>r,()=>0)}export{o as n,a as t};

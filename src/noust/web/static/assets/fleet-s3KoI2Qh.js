@@ -1,0 +1,1 @@
+import{t as e}from"./HomePage-D385pbqc.js";import{Bn as t}from"./routes-DGFKO5vH.js";import{Ir as n}from"./routes-work-Bx_5tOQE.js";var r=n();function i(){let{panel:n,customise:i}=t.useSearch();return(0,r.jsx)(e,{scope:`fleet`,panelId:n,customising:i===!0})}export{i as component};

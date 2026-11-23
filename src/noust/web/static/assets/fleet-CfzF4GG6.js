@@ -1,1 +1,0 @@
-import{t as e}from"./HomePage-BUzwnCVl.js";import{Bn as t}from"./routes-BmBcOlUv.js";import{Ir as n}from"./routes-work-Bgcyg2lO.js";var r=n();function i(){let{panel:n,customise:i}=t.useSearch();return(0,r.jsx)(e,{scope:`fleet`,panelId:n,customising:i===!0})}export{i as component};

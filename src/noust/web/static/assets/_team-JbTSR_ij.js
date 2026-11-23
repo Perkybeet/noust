@@ -1,1 +1,0 @@
-import{t as e}from"./TeamLayout-Bhidy10x.js";import{Ct as t,Ir as n}from"./routes-work-Bgcyg2lO.js";var r=n();function i(){let{team:n}=t.useParams();return(0,r.jsx)(e,{team:n},n)}export{i as component};
