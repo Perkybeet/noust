@@ -1,17 +1,8 @@
-> **Noust 4.3** looks after all of Docker and lets a machine that only has Docker deploy. Server > Docker lists
-> what Docker has on a server, whoever made it, and changes only what its owner's own way allows; images have new
-> versions to look for and update behind the health gate, a stack that already runs can be brought to Noust, and
-> the central of a NAS, given the machine's Docker on purpose, deploys containers and Compose stacks on it. An
-> optional built-in assistant, with the model you choose, explains a failure, looks into it with read-only tools
-> and proposes what a person approves, and "See what it will do" shows an operation's plan before it is applied.
-> A central takes the copies of its servers through the tunnels it already has. 4.3.0 also fixes a vulnerability in
-> the check on Docker Compose files that affects 3.1.0 to 4.2.1 (see
-> [Security](docs/CHANGELOG-4.3.md#security)): update, then run `noust health`. The update restarts nothing and
-> rewrites no application, site or Compose file, though the unit of each Compose stack gains one line that checks
-> its start, and the store moves to schema 18: read [docs/UPGRADING-4.3.md](docs/UPGRADING-4.3.md) before updating,
-> and see [docs/CHANGELOG-4.3.md](docs/CHANGELOG-4.3.md).
->
-> Every earlier release has its own changelog in [docs/](docs/) (`CHANGELOG-<version>.md`).
+> **Noust 4.3** looks after all of Docker on a server, lets a machine that only has Docker deploy, and fixes a
+> vulnerability in the check on Docker Compose files that affects 3.1.0 to 4.2.1
+> ([Security](docs/CHANGELOG-4.3.md#security)): update, then run `noust health`. Read
+> [docs/UPGRADING-4.3.md](docs/UPGRADING-4.3.md) before updating; what changed is in
+> [docs/CHANGELOG-4.3.md](docs/CHANGELOG-4.3.md), and every earlier release has its own changelog in [docs/](docs/).
 
 <h1 align="center">
   <picture>
