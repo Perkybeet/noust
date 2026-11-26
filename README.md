@@ -1,8 +1,8 @@
 > **Noust 4.3** looks after all of Docker on a server, lets a machine that only has Docker deploy, and fixes a
 > vulnerability in the check on Docker Compose files that affects 3.1.0 to 4.2.1
-> ([Security](docs/CHANGELOG-4.3.md#security)): update, then run `noust health`. Read
-> [docs/UPGRADING-4.3.md](docs/UPGRADING-4.3.md) before updating; what changed is in
-> [docs/CHANGELOG-4.3.md](docs/CHANGELOG-4.3.md), and every earlier release has its own changelog in [docs/](docs/).
+> ([Security](https://noust.dev/docs/releases/changelog-4.3/#security)): update, then run `noust health`. Read
+> [docs/UPGRADING-4.3.md](https://noust.dev/docs/releases/upgrading-4.3/) before updating; what changed is in
+> [docs/CHANGELOG-4.3.md](https://noust.dev/docs/releases/changelog-4.3/), and every earlier release has its own changelog in [docs/](https://github.com/Perkybeet/noust/tree/main/docs).
 
 <h1 align="center">
   <picture>
@@ -12,6 +12,21 @@
 </h1>
 
 <p align="center">
+  <a href="https://noust.dev">Website</a> ·
+  <a href="https://noust.dev/docs/">Documentation</a> ·
+  <a href="https://noust.dev/docs/start/install/">Install</a> ·
+  <a href="https://github.com/Perkybeet/noust/releases">Releases</a> ·
+  <a href="https://github.com/Perkybeet/noust/discussions">Discussions</a> ·
+  <a href="https://github.com/Perkybeet/noust/issues/new/choose">Report a problem</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Perkybeet/noust/actions/workflows/ci.yml">
+    <img src="https://github.com/Perkybeet/noust/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI">
+  </a>
+  <a href="https://github.com/Perkybeet/noust/releases/latest">
+    <img src="https://img.shields.io/github/v/release/Perkybeet/noust" alt="Latest release">
+  </a>
   <a href="https://build.opensuse.org/package/show/home:Perkybeet/noust">
     <img src="https://build.opensuse.org/projects/home:Perkybeet/packages/noust/badge.svg?type=default" alt="OBS Build Status">
   </a>
@@ -47,68 +62,16 @@ from the CLI, a browser console and a JSON API.
 
 ---
 
-## What Noust is, and is not
-
-**It is**
-
-- **Your server.** A VPS or a bare-metal machine running Ubuntu, Debian, Fedora or openSUSE.
-- **systemd-native.** Every application is a unit you can inspect with `systemctl` and
-  `journalctl`; every site is a file in `/etc/nginx` or `/etc/apache2`. Nothing sits between
-  you and your processes, and there is no daemon with a privileged socket.
-- **A distribution package.** Installed with `apt`, `dnf` or `zypper`, or from PyPI.
-- **Atomic deploys with instant rollback.** Each deploy builds in its own directory, is
-  activated behind a health check, rolls back by itself when it does not answer, and any
-  release still on disk can be reactivated in seconds. From 4.0 a new application that runs a
-  process behind nginx starts as two instances (blue and green): the next release starts
-  beside the old one and nginx switches only once it answers; static and PHP sites already
-  switch with one atomic rename, and a Docker Compose stack gets the same through a relay,
-  which stays opt-in. A repository's `noust.yaml` runs its migrations before anything serves
-  the new version, and stops the deploy when they fail.
-- **A deploy queue.** A push that arrives while an application builds waits its turn instead
-  of failing, and several pushes are one update. Builds of different applications overlap up
-  to a limit you set, `noust deploy queue` shows the line, and `noust deploy cancel` stops a
-  build that has not started to activate, removing the half-built release and touching nothing
-  that serves.
-- **Per-application resource limits** with cgroups: memory, CPU and tasks.
-- **Builds without root.** Dependencies install and build as an unprivileged account in a
-  systemd sandbox that cannot read the rest of the machine, and every application created from
-  3.2 runs as a system account of its own.
-- **A console and an API** over exactly what the CLI does, with accounts and roles, passkeys
-  and two-factor authentication, sudo mode, four-eyes approvals and a tamper-evident audit log.
-- **The server too**: operating-system updates, SSH, the firewall, fail2ban, disks and swap,
-  checked and changed safely from the same console.
-- **A terminal in the browser, on the record.** A shell as an application, in its sandbox and
-  with its environment, and commands run once; for administrators, a root shell on the server,
-  off until it is turned on. Each session asks you to confirm it is you, and is recorded
-  ([docs/terminal.md](docs/terminal.md)).
-- **Docker, looked after whole.** When the machine has Docker, Server > Docker lists its containers,
-  images, volumes and networks whoever made them, says whose each is (an application's, a database
-  engine's, Noust's, or nobody's) and offers only what that owner's own way allows
-  ([docs/docker.md](docs/docker.md)).
-- **An assistant, if you want one.** Off until an administrator turns it on, with the model you choose;
-  it explains and investigates, and what would change something is a proposal a person approves
-  ([docs/assistant.md](docs/assistant.md)).
-
-**It is not**
-
-- **A cluster or an orchestrator.** Each server runs its own applications and manages
-  itself. A central manages several Noust servers from one console and acts on many at once
-  (see [The fleet](#the-fleet)); it does not schedule work across them.
-- **A container orchestrator.** Applications run as ordinary processes. A Dockerfile, an image
-  or a Docker Compose project runs in containers on the same machine, under a unit, and Docker
-  is needed only for those; Noust looks after what Docker has there and does not schedule
-  containers across machines.
-- **A container boundary between running applications.** Each application created from 3.2
-  runs as an account of its own, so one cannot read another's tree, but they share the kernel
-  and the machine; those from before keep the shared service account until `noust app identity
-  migrate`. Deploy only code you trust, as you would on any server you administer.
-
----
-
 ## Install
 
-On a fresh server, as root. The installer is published with every release beside its checksum
-(and the checksum's signature), so check it before you run it:
+On a fresh server, as root:
+
+```bash
+curl -fsSL https://noust.dev/install.sh | sh
+```
+
+That address redirects to the installer of the latest release. The installer is published with
+every release beside its checksum (and the checksum's signature). To check it before you run it:
 
 ```bash
 curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/install.sh
@@ -117,13 +80,13 @@ sha256sum -c --ignore-missing SHA256SUMS && sh install.sh
 ```
 
 It reads the distribution and the architecture and refuses what is not on the
-[platform list](docs/PLATFORMS.md); adds the Noust repository after checking that the key it
+[platform list](https://noust.dev/docs/start/platforms/); adds the Noust repository after checking that the key it
 serves has the fingerprint pinned in the script; installs the `noust` package with `apt`, `dnf`
 or `zypper` (the RHEL family has no package, so it gets a virtual environment with pip); runs
 `noust setup init -y` and `noust web enable`; and prints how to reach the console. It downloads
 no other script. `sh install.sh --dry-run` prints what it would do and changes nothing.
 
-[docs/install.md](docs/install.md) has the whole path to a signed-in console, and the other
+[docs/install.md](https://noust.dev/docs/start/install/) has the whole path to a signed-in console, and the other
 ways: by hand on Ubuntu, Debian, Fedora and openSUSE, from PyPI, from source, and the container
 image that runs a central.
 
@@ -144,17 +107,23 @@ noust releases rollback shop.example.com                           # back to the
 `current`, obtains a Let's Encrypt certificate, and keeps the release only if the
 application answers. When the repository has an `.env.example`, a `.env` is generated from
 it, with random values for secrets. Useful options: `--type`, `--port`, `--branch`, `--www`,
-`--webserver apache`, `--no-ssl`, `--persist storage`, `--env-file` (its variables are
-written into the application's `.env`, `0600` and loaded by the unit with
-`EnvironmentFile=`; only `PORT` and `NODE_ENV` stay inline in the unit, which local users can
-read). To change the port later, redeploy with `--port` rather than editing the `.env` - the
-unit's own `PORT` would otherwise win over one written there. For a private repository,
+`--webserver apache`, `--no-ssl`, `--persist storage`, `--env-file`. For a private repository,
 create a deploy key with `noust setup ssh --generate --show` and use the SSH URL, or connect
-the GitHub App.
+the GitHub App: private repositories then clone with one-hour installation tokens passed through
+git's environment only, never in a URL, `.git/config`, a command line or a log.
+
+Detection tries the most specific type first: monorepo, Docker Compose, Angular, Astro, Nuxt,
+Remix, SvelteKit, Next.js, PHP, Vite, Python, Go, Ruby, Rust, Node.js, static. When nothing
+matches, Noust falls back to Node.js and says so; pass `--type` to choose.
 
 Run `noust` with a command and `--help` for its options, or `noust -i` for an interactive
 menu. `--dry-run` before any command rehearses it without changing anything, and `--json`
-gives machine-readable output where supported.
+gives machine-readable output where supported. Global options go before the command: `-v` (verbose),
+`--dry-run`, `--json`, `--no-color`, `--reason` (why, for the audit log), `-i`, `--changelog`,
+`-V` (version). Tab completion: `noust setup completions`. The reference configuration is
+`/usr/share/noust/config.example.yaml`. The guide that goes on from here, to a domain, a
+database, a backup and a way back, starts at
+[Deploy your first application](https://noust.dev/docs/start/first-application/).
 
 ---
 
@@ -172,12 +141,6 @@ prints the exact line:
 ssh -L 8080:127.0.0.1:8080 root@server.example.com    # then open http://localhost:8080
 ```
 
-`noust web enable` keeps it running: it writes `noust-web.service`, which starts at boot and
-restarts on failure, and `noust web disable` removes it. To try it first, `noust web start`
-runs it in the foreground until Ctrl+C, and `noust web start -d` in the background until
-`noust web stop` or the next reboot. All three take the same options and print the access
-token the same way.
-
 To open it from a browser without a tunnel, publish it on a name of your own, over TLS, with
 Noust's own nginx and Let's Encrypt:
 
@@ -186,881 +149,104 @@ noust console expose --domain console.example.com --allow-ip 203.0.113.0/24
 noust console unexpose                  # removes exactly what the line above made
 ```
 
-It refuses while any account can sign in without a second factor, when the name belongs to an
-application or to a site Noust did not write, when the name does not point at this server, and
-under the ENS profile unless forced (`--force-ens`, which asks, needs `--allow-ip` and is
-audited). There is no plain-HTTP option: until the certificate exists the site answers 404. See
-[docs/console.md](docs/console-start.md#reaching-it).
-
-To expose it by hand, serve TLS (`--host 0.0.0.0 --tls-cert ... --tls-key ...`, or `--self-signed`),
-or put it behind a reverse proxy that terminates TLS and declare it with `--trusted-proxy`.
-Binding beyond loopback without TLS is refused unless you pass `--insecure-http`. A running
-console reads the token from disk on every request, so `noust web token --new` retires the
-old one at once, with no restart needed.
-
 The first time, sign in with the access token: the console asks you to create the first
 account, an administrator (and, recommended, a security officer for someone else). From then
 on people sign in with their account, a password and an authenticator code, or a passkey, and
-the access token is emergency access. Destructive actions ask you to confirm it is you (sudo
-mode) and stay confirmed for 10 minutes.
-
-It covers everything the CLI does: an overview of what needs attention; applications with
-their deployments, releases, live logs, metrics, environment, database, domains, diagnosis and
-settings; databases with a data browser and a SQL console; backups, schedules and remote
-destinations; certificates and sites, each site as text, as a structure you can edit visually
-and as an animated diagram of what reaches what, with a "try a URL" that shows which location
-answers; the server (updates, security, storage, services, system); cron; one page of logs for
-the applications and the system's journal; an activity timeline, and a panel that answers "what happened here" for any stretch you select on a chart;
-and settings, accounts, approvals, the audit log and compliance. On a central, fleet-wide views
-and bulk actions.
-The new-application wizard deploys from a repository, a recipe or an exported application.
-It speaks English, Spanish, French, German, Brazilian Portuguese and Simplified Chinese, following
-the browser, switched from the session menu; what nginx, systemd or certbot print is shown verbatim,
-as they wrote it. Every page is built from
-one design system, [docs/DESIGN.md](docs/DESIGN.md). Keyboard: `Ctrl K` for
-the command palette, `g a` for applications, `/` to search, `?` for every shortcut. Light,
-dark and system themes. Built to WCAG 2.2 AA and tested with axe on every page.
-
-![An application's deployments](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/assets/console/app-deployments.png)
-
-See [docs/console.md](docs/console.md).
+the access token is emergency access. See
+[docs/console.md](https://noust.dev/docs/reference/console/start/#reaching-it).
 
 ---
 
-## Releases and instant rollback
+## Where to go next
 
-```
-/var/www/apps/shop-example-com/
-  releases/20260925-143012-a1b2c3d/    one build per deploy
-  releases/20260924-101500-9f8e7d6/
-  current -> releases/20260925-143012-a1b2c3d
-  shared/.env                           outside every release
-  shared/storage/                       persistent paths, linked into each release
-  repo/                                 git cache
-```
+The documentation is at [noust.dev/docs](https://noust.dev/docs/), arranged by the question you have.
 
-- **Isolated builds.** A deploy fetches and builds in a new directory; the running
-  application sees nothing until activation. Dependencies are copied from the active release
-  instead of reinstalled when the lockfiles have not changed.
-- **Health-gated activation.** `current` is swapped atomically and the unit restarted; the
-  release stays only if the application answers its health check (by default, any status
-  below 500 on its port) within about 30 seconds. The path, accepted statuses and timeout
-  are set per application with `noust app health`.
-- **Automatic rollback.** If it does not answer, the previous release is put back and the
-  deploy fails with the probe results and the unit's journal, verbatim.
-- **Instant rollback.** `noust releases rollback DOMAIN [RELEASE]`, the console, or
-  `POST /api/apps/{domain}/releases/{id}/activate`: re-point, restart, same health gate.
-  `noust update DOMAIN --commit SHA` rebuilds an exact commit.
-- **Retention.** The newest five releases, plus the active one, are kept by default;
-  `noust releases keep DOMAIN N` changes it.
-- **The branch it deploys.** `noust app branch DOMAIN main` pins it: every update builds it and
-  the webhook ignores pushes to other branches. `noust update --branch X` pins `X` when it
-  succeeds. `noust app follow-tags DOMAIN 'v*'` deploys the newest matching tag instead, from a
-  GitHub release or a tag push, and never an older one.
-- **Hooks and migrations.** `hooks.pre_deploy` in a repository's `noust.yaml` runs before the
-  new version serves, in the application's identity, and a failure stops the deploy with what
-  served before still serving; `post_deploy` runs after the health gate and a failure leaves
-  the deployment deployed with warnings. A deployment whose hook changed the database schema
-  makes going back past it ask first (`--schema-changed-ok`): Noust puts code back, never a
-  database.
-
-Applications deployed in place (by 1.x, or with `--layout inplace`) stay in place until
-you run `noust app migrate DOMAIN` (rehearse it first with `noust --dry-run app migrate
-DOMAIN`): the live tree becomes the first release, the `.env` and what the application wrote
-for itself move to `shared/`, and if it does not come up everything is put back. A monorepo moves
-the same way, every workspace's unit at once; Docker Compose projects keep deploying in place. See
-[docs/releases.md](docs/releases.md).
-
-### Builds without root
-
-```bash
-noust app sandbox test shop.example.com      # build the live commit in the sandbox, activate nothing
-noust app sandbox enable shop.example.com    # sandboxed from the next deploy on
-```
-
-Installing dependencies and building run in a transient systemd unit as the unprivileged
-`noust-build` account: it can write its release and its own cache, and cannot read Noust's
-configuration, the store, root's home or any other application's `.env`. A self-test proves the
-sandbox holds before the first build; where it does not (a container or WSL without mount
-namespaces) the build stops rather than running as root. Applications and previews created from
-3.1 on build this way. An application from before builds this exact commit in the sandbox on its
-next update: when that passes it builds there from then on, and when it fails it builds as root
-as before and says so (`noust health`, a notification). `--network strict` also builds without a
-network.
-
-### Blue/green
-
-```bash
-noust app zero-downtime shop.example.com on
-```
-
-On by default for applications created from 4.0 (`deploy.zero_downtime`); opt-in for the
-ones from before, with the command above. The application runs as two instances of one systemd
-template unit, each on its own port and release, behind an nginx upstream. An activation starts the idle
-instance on the new release, passes the health gate on its port, moves the upstream with
-`nginx -t` and a reload, and stops the old instance after a drain (10 seconds by default). A
-failed gate stops the new instance; the old one never stopped. Only for applications on
-releases, with a process, behind nginx; the application must tolerate two copies running
-for a few seconds. A Docker Compose stack uses the same command and gets
-[a relay](#docker-compose) instead.
+| You want to | Read |
+|---|---|
+| Know what Noust is, and whether it is for you | [What Noust is, and when it is not for you](https://noust.dev/docs/start/what-is-noust/) and [how it works](https://noust.dev/docs/start/how-noust-works/) |
+| Deploy a first application, and put it on your domain | [Deploy your first application](https://noust.dev/docs/start/first-application/), then [put it on your domain, with HTTPS](https://noust.dev/docs/start/domain-and-https/) |
+| Deploy a stack, a Docker Compose project or a container | [Deploy by stack](https://noust.dev/docs/guides/frameworks/), [build and start commands](https://noust.dev/docs/guides/build/), [Docker Compose](https://noust.dev/docs/guides/compose/), [container applications](https://noust.dev/docs/guides/containers/) and [Docker](https://noust.dev/docs/guides/compose/docker/) |
+| Install a ready-made application | [Install and update a recipe](https://noust.dev/docs/guides/recipes/) |
+| Go back to an earlier release, or deploy without a cut | [Roll back to a release or a deployment](https://noust.dev/docs/guides/releases/) and [deploys without downtime](https://noust.dev/docs/guides/releases/deploys/) |
+| Keep data safe | [Databases](https://noust.dev/docs/guides/databases/) and [back up applications and databases](https://noust.dev/docs/guides/backups/) |
+| Be told when something fails | [Notifications and alerts](https://noust.dev/docs/guides/notifications/) and [the resource monitor](https://noust.dev/docs/guides/monitor/) |
+| Manage several servers from one console | [Run a central](https://noust.dev/docs/guides/fleet/) |
+| Give people access, and publish the console safely | [Security of the console and the server](https://noust.dev/docs/guides/security/) and [ENS, category MEDIUM](https://noust.dev/docs/guides/ens/) (in Spanish) |
+| Move from another platform | [From Coolify](https://noust.dev/docs/guides/from-coolify/), [Dokploy](https://noust.dev/docs/guides/from-dokploy/), [CapRover](https://noust.dev/docs/guides/from-caprover/) or [Dokku](https://noust.dev/docs/guides/from-dokku/) |
+| Look up a command, an API operation or a setting | [Every command](https://noust.dev/docs/reference/cli/), [the API](https://noust.dev/docs/reference/api/) and [every setting](https://noust.dev/docs/reference/configuration/) |
+| Fix something that is wrong | [Troubleshooting](https://noust.dev/docs/guides/troubleshooting/), one page per symptom, with the messages word for word |
 
 ---
 
-## Build, start and runtime
-
-```bash
-noust app build set shop.example.com --base-directory apps/web --build 'pnpm --filter web build'
-noust app build set shop.example.com --start 'node dist/server.js --port ${PORT}' --runtime node@22
-noust app build show shop.example.com        # which block applies, and where it comes from
-noust create -d api.example.com -s https://github.com/you/shop.git --build-file api.yaml   # one repository, several apps
-noust runtime install python@3.12            # Node and Python are installed under /opt/noust/runtimes
-```
-
-A `build:` block in the repository's `noust.yaml` (or the operator's, which replaces it whole)
-changes how an application is installed, built and started: `base_directory` for a project in a
-subdirectory of a monorepo, `install`, `build` and `start` commands (an argument vector, never a
-shell), `publish_directory` for static output, and `runtime` to pin `node@22`, `python@3.12` or
-`php@8.3`. The project's `.nvmrc`, `engines.node`, `.python-version`, `runtime.txt` and
-`composer.json` are read too. Pinned Node comes from nodejs.org verified against its published
-SHA-256, Python from uv, PHP from the distribution's packages; builds run in the sandbox with the
-runtime first on `PATH`, and the unit names its interpreter by absolute path. An update that
-changes the block rewrites the unit's command, directory and `PATH`, and puts the previous unit
-back when the release does not answer.
-
-Nuxt, SvelteKit, Astro, Remix and React Router, and Angular are detected and deployed as a
-server or as static files depending on how they are configured. Python binds `127.0.0.1`, takes
-its workers from `WEB_CONCURRENCY`, and starts with whatever server you name.
-
-See [docs/build.md](docs/build.md).
-
----
-
-## Docker Compose
-
-A project with a `docker-compose.prod.yml` (or any compose file) deploys as a stack under a
-systemd unit, with nginx in front of its published ports, the health gate, and a way back to the
-images that served when an update does not pass. 3.2 adds what a project with a database needs:
-
-```bash
-noust create -d shop.example.com -s https://github.com/you/shop.git        # detects the compose file
-noust app zero-downtime shop.example.com on          # updates without a cut: a relay per web service
-noust app adopt shop.example.com --path /opt/shop    # register a stack that already runs, untouched
-noust app backup-before-update shop.example.com on   # on by default: databases dumped before an update
-noust backup restore BACKUP_ID --databases-only      # put the stack's databases back
-```
-
-- **Hooks.** A `noust.yaml` at the root of the repository declares `hooks.pre_deploy` (your
-  migrations, run in a one-off container of the image just built, before anything is recreated;
-  a failure stops the update) and `hooks.post_deploy`. The project's own steps live in its
-  repository, hung from the hooks Noust gives it, and Noust stays generic.
-- **No cut.** The relay starts a twin of each web service from the new image, passes the health
-  gate against it, points nginx at it, recreates the real container, and moves nginx back. A
-  site you wrote yourself includes one line (`include /etc/nginx/noust-upstreams/<app>/<service>.servers;`)
-  that the command prints; it is never rewritten for you.
-- **A way back from a migration.** Every update dumps the stack's Postgres, MySQL, MariaDB or
-  MongoDB through the engine's own client, and stops if it cannot; going back past a deployment
-  that changed the schema asks before it goes.
-- **Your own site, respected.** A site without Noust's marker is never rewritten or deleted.
-  `noust app adopt` records the file serving the domain, whatever it is called.
-- **Workers.** A stack that publishes no port is judged by its containers, not by a probe of a
-  port nothing listens on.
-
-See [docs/compose.md](docs/compose.md).
-
----
-
-## Docker
-
-```bash
-noust docker images check                      # ask the registries which images in use have a new version
-noust docker images update IMAGE               # an application's image: its own update, behind the health gate
-noust docker stack bring nextcloud --preview   # a stack that already runs: what Noust would register, nothing touched
-noust docker stack compose check nextcloud new.yml   # judge an edited Compose, write nothing
-noust server cleanup docker-dangling-images --plan   # what a cleanup would remove, whose it is, before it does
-```
-
-Server > Docker has seven pages (summary, stacks, containers, images, volumes, networks, engine). A
-container is read from the inside (why it stopped, its last lines, its logs as they are written, what it uses,
-a console), what an application owns is changed through the application, and what nobody of Noust made is
-started, stopped and removed there. A look for a new version is asked for and never made by a page; a major
-version is accepted in words, and a stack's edited Compose is judged by what Compose resolves it to, kept as a
-version and put back by itself when the stack does not come up. A machine that has Docker and nothing else, such
-as the central of a NAS given its Docker on purpose, deploys containers and stacks on it
-([docs/central-deploy-here.md](docs/central-deploy-here.md)). See [docs/docker.md](docs/docker.md) and
-[docs/containers.md](docs/containers.md).
-
----
-
-## Pull request previews
-
-```bash
-noust preview enable shop.example.com --domain previews.example.com
-noust preview list shop.example.com
-```
-
-Every pull request gets `pr-<n>-<app>.previews.example.com`, deployed on releases with 256 MB
-and half a CPU, rebuilt on each push, and removed when the request closes or after seven
-days without a push, up to a quota per application. Events come from the application's own
-webhook (GitHub, GitLab, Gitea, Bitbucket Cloud) or from the GitHub App. Pull requests from forks are refused,
-and on GitHub so are those of authors who are not the repository's owners, members or
-collaborators. A preview runs with the application's environment variables, except those
-listed with `--exclude-env`; its build runs in the sandbox as `noust-build` and never sees
-production secrets.
-
-### A private repository, with a key of its own
-
-```bash
-noust app deploy-key generate shop.example.com   # an ed25519 key for this repository alone
-noust app deploy-key rotate shop.example.com     # a new one waits; the old keeps working until the host answers with it
-noust app git-credential set shop.example.com -u x-token-auth --secret-file -   # an https token, kept as a secret
-```
-
-Each repository can have an SSH deploy key of its own, generated here (no passphrase, a `0600`
-secret file that never travels in a command line) or imported, instead of the one key of the
-server. git is given only that key, host keys are pinned the first time a host is reached and a
-changed key is refused, and a rotation never leaves the repository without a key that works.
-`noust setup ssh` stays the fallback for a repository with none. A Bitbucket Cloud repository
-deploys on push and builds previews like the other hosts (webhook with a secret), and clones with
-a deploy key or an access token.
-
----
-
-## GitHub
-
-A GitHub App per server, created from the console (Settings > Integrations) with GitHub's
-manifest flow: it lives in your account, its private key stays on the server (`0600`), and
-you choose the repositories when you install it. Private repositories clone with one-hour
-installation tokens passed through git's environment only, never in a URL, `.git/config`, a
-command line or a log; `github:owner/repo` works as a source everywhere. Pushes and pull
-requests arrive at `/hooks/github`, and each deployment shows on GitHub as in progress,
-success or failure. `noust web expose-hooks DOMAIN` publishes only `/hooks/` of the console
-on a domain of its own, so GitHub can reach a console that listens on loopback.
-`noust github status` shows what is connected.
-
----
-
-## Recipes
-
-```bash
-noust recipe list -q "password manager"             # search; --category, --tag, --kind filter
-noust recipe show vaultwarden                       # what it runs, what it opens, what to give it
-noust recipe install vaultwarden -d vault.example.com
-noust recipe outdated                               # installed recipes the catalogue has a newer version of
-noust recipe update vault.example.com               # through the one update: backup, health gate, way back
-```
-
-430 applications, every one started for real before it was accepted: WordPress (PHP-FPM and MariaDB),
-Uptime Kuma, Umami (PostgreSQL) and a one-page demo (Hello) run natively from a source pinned to a tag or
-checked against a published checksum; the other 426 run in Docker, as a Compose stack behind nginx whose images are pinned by tag and by
-digest. Some are one container (Vaultwarden, Memos, Syncthing, Grafana, Jellyfin, ntfy, Actual
-Budget, CyberChef...); the rest bring the database they need as a service of their stack, which
-Noust dumps before every update (Gitea, Forgejo, Nextcloud, Ghost, Plausible, Matomo, Mattermost,
-Paperless-ngx, Keycloak, authentik, Immich, Odoo, Metabase, NocoDB, Directus, Twenty,
-Rocket.Chat, Langflow, LiteLLM, Penpot, Plane, GlitchTip, Typebot, Home Assistant...). An
-application that answers on more than one name (Typebot's builder and viewer, Logto's sign-in and
-admin console) gets each name from the recipe. Ten more are listed with the reason they are not
-installable, and where it was read. The 27 that are not free software say so, with their licence. Each recipe has generated secrets, its variables (kept across
-updates and editable afterwards), a health check and the next steps. Also
-"From a recipe" in the console's new-application wizard. Noust installs nothing on its own:
-`noust recipe show` lists what a recipe needs. The format, the pinning policy and how to contribute
-one are in [docs/recipes.md](docs/recipes.md).
-
----
-
-## Moving applications
-
-```bash
-noust app export shop.example.com -o shop.json        # secrets only with --with-secrets
-noust app import shop.json --domain shop.example.org
-noust import --from vercel ./shop                     # also: railway, render, heroku
-```
-
-An export is everything that defines an application, as versioned JSON; an import deploys it
-through the normal path and applies the rest (domains, health check, retention, secret marks,
-cron jobs, backup schedule, previews, blue/green), listing what it could not. `noust import
---from` reads another platform's configuration in a repository and proposes Noust's, with a
-warning for each thing that has no equivalent.
-
----
-
-## Domains, aliases and redirects
-
-```bash
-noust domain add shop.example.com shop.example.org                    # alias: serves the app too
-noust domain add shop.example.com old-shop.example.com --kind redirect # 301 to the primary
-noust domain list shop.example.com
-noust domain remove shop.example.com shop.example.org
-```
-
-Every name is rendered into the site, tested by the web server before it is reloaded, and,
-when the application serves TLS, added to its certificate. `noust create --www` records
-`www.<domain>` as a redirect. The console checks where each name resolves before you add it.
-It works for Docker Compose and monorepo applications too. A site you wrote yourself is never
-rewritten or deleted, and the console edits any site as text, as a structure or as a diagram.
-See [docs/domains.md](docs/domains.md).
-
----
-
-## Resource limits
-
-```bash
-noust app limits shop.example.com --memory 512M --cpu 50% --tasks 256 --restart
-noust app limits shop.example.com --memory none         # remove one limit
-noust app limits shop.example.com                       # show them
-```
-
-The limits become `MemoryMax=`, `CPUQuota=` and `TasksMax=` in the unit (200% is two CPUs).
-With `--restart`, the application must pass the health gate under its new limits or the old
-ones are put back. Docker Compose projects set their limits in the compose file.
-
----
-
-## Diagnose
-
-```bash
-noust diagnose shop.example.com
-```
-
-Explains why an application is down. It checks the unit's state and exit status, whether the
-recorded port is listening (and which port the process listens on instead), an HTTP probe
-straight to the application and one through nginx, the last journal lines, nginx's error log
-for the domain, the certificate, the last deployment, OOM kills in the last week and disk
-space, and puts the most likely cause first: "Listening on 3001, Noust routes to 3000",
-"Killed by the kernel for running out of memory". Every probe only reads. `--json` for
-scripts; the exit code is 1 when the application is down.
-
-`noust health` checks the whole server: free disk, the web server, every application,
-certificates close to expiry, memory pressure, the hardening checks, the audit trail and the
-applications still building as root.
-
-![Diagnose](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/assets/console/app-diagnose.png)
-
-### The built-in assistant
-
-```bash
-printf '%s\n' "$KEY" | noust assistant enable --base-url https://api.example.org/v1 --model MODEL --key-stdin
-noust assistant ask --as marta "Why does shop.example.com keep restarting?"
-noust update shop.example.com --plan                                   # what an update would do, nothing executed
-```
-
-An assistant that is off until an administrator turns it on, with the model the administrator chooses (a
-service that speaks the OpenAI-compatible protocol, or a model on your machine or network). From a failed
-deployment, a diagnosis or a firing alert it explains what it read, looks into it with read-only tools, and
-proposes what it would do: a change is a call a person approves with their own session, where sudo mode and a
-second approver are asked as ever. It acts with a token of its own that never has sudo mode and never reaches
-secrets, terminals, accounts or the audit trail; nothing leaves the server until it is on, and what leaves has
-every secret removed. How well a given model investigates is for you to see:
-[docs/assistant.md](docs/assistant.md) says what is tested and what is not
-([docs/assistant-battery.md](docs/assistant-battery.md)), and [docs/plans.md](docs/plans.md) is the plan
-every operation can show before it is applied.
-
----
-
-## Backups
-
-```bash
-noust backup create shop.example.com -m "Before the migration" --include-databases
-noust backup list shop.example.com
-noust backup verify BACKUP_ID
-noust backup restore BACKUP_ID
-noust backup schedule create shop.example.com --schedule daily --retention-count 7
-noust rollback shop.example.com            # restore the latest backup, after a safety backup
-```
-
-A backup is one `.tar.gz` under `/var/backups/noust/<app>/`, mode `0600`, with a SHA-256
-checksum: the application (for one on releases, the active release and `shared/`), its `.env`
-unless `--no-env`, and on request its database dumps (`--include-databases`) and Docker
-volumes, so it restores on a server that knows nothing about this one. For a Docker Compose
-stack, `--include-databases` dumps the databases its containers run, and `noust backup restore
---databases-only` puts them back. Schedules are systemd
-timers named `noust-backup-<app>`, and their retention applies only to the backups they
-made: manual and safety backups are never removed by a schedule.
-
-**Off the server.** Remote destinations go through rclone: SFTP, SMB, WebDAV, S3 and
-compatibles, B2, Google Drive, OneDrive, Dropbox, pCloud and mounted paths, with optional
-encryption per destination.
-
-```bash
-noust backup destination add offsite ...        # --help lists the kinds and their options
-noust backup destination test offsite
-noust backup push BACKUP_ID offsite
-noust backup remote-list offsite
-noust backup restore --from offsite BACKUP_ID
-```
-
-Each scheduled backup is copied to the schedule's destinations, verified and pruned per
-destination; each server keeps its own folder, so servers sharing a bucket never remove each
-other's backups. Keep the key an encrypted destination shows: it is the only way to read its
-backups on a replacement server.
-
----
-
-## Databases
-
-```bash
-noust db install postgresql                             # also: mysql (MariaDB), redis (or Valkey), mongodb
-noust db provision shop.example.com -e postgresql       # a database and an account, linked to the app
-noust db tables shop -e postgresql                      # browse, read-only
-noust db query shop "SELECT count(*) FROM orders" -e postgresql
-noust db backup-schedule set shop -e postgresql --schedule daily --keep 7 --to offsite
-noust db restore shop dump.pgc -e postgresql --as-new shop_check
-noust db connect-info shop -e postgresql                # the SSH tunnel to reach it from your computer
-```
-
-A database belongs to an application: `noust db provision` creates it with its own account and
-writes the connection string into the application's environment, and rotating a password
-updates every application that uses it behind the health gate. Each database has a page in the
-console with its data, a SQL console with history and saved statements, backups, users and
-metrics. Reads are read-only because the database server enforces it: a dedicated role or
-account with `SELECT` and nothing else, in a read-only transaction, so `pg_read_file` or
-`LOAD_FILE()` are out of reach. Writing SQL or editing a row needs sudo mode. Backups are
-policies with a schedule, retention, verification and remote destinations (timers
-`noust-backup-db-*`), and a restore never loses data: `--as-new` restores beside the database,
-and restoring over it takes a safety copy first. Passwords never appear in a command line, and
-database ports open beyond the machine are reported (`noust db exposure`).
-
-The engine and its version are a choice, not an accident (`noust db provision shop -e postgresql
---version 17 --install`; `noust db choices` lists what the server can be given). The host's engine
-stays the primary one; for another version beside it, or an engine the host does not have, Noust
-runs it itself from the engine's official image pinned by digest, on 127.0.0.1 only and held to a
-memory limit (`noust db instance create pg16 --engine postgresql --version 16 --memory 512m`), and
-it is then `postgresql@pg16` wherever an engine is named. And when a
-desktop client has to connect from your computer, `noust db public open shop -e postgresql --from
-203.0.113.7` makes that one database reachable on a port you choose, on purpose and with every
-consequence shown first: a proxy forwards the port (the engine is not reconfigured), an account of
-its own is made for it, TLS is required where the engine can, and the firewall is told.
-`noust db public close shop -e postgresql` undoes all of it.
-
----
-
-## Cron
-
-```bash
-noust cron create nightly-report "/usr/bin/node scripts/report.js" --schedule daily \
-  --app shop.example.com --working-directory /var/www/apps/shop-example-com/current
-noust cron list
-noust cron run nightly-report
-noust cron runs nightly-report
-```
-
-Jobs are systemd timers (`noust-cron-<name>`). A schedule is `hourly`, `daily`, `weekly`,
-`monthly` or any `OnCalendar=` expression. The command runs without a shell: write
-`/bin/sh -c "..."` when you need pipes or `&&`. `--app` associates the job with an
-application and makes its directory the default working directory; for an application on
-releases, the code is under `current/`, so name that directory. `--timeout SECONDS` stops a
-run that takes longer and counts it as failed, and `--service NAME` runs the command in a
-service of the application's Compose stack. Runs and their output are read back from the
-journal.
-
-Processes beside the web process, copies of it, the sandbox of its unit, mounted files, a file
-manager, log shipping and the list of changes not applied yet are in
-[docs/runtime.md](docs/runtime.md).
-
----
-
-## Notifications and webhooks
-
-Notifications go to a webhook (JSON, optionally signed), Slack, Discord, Telegram or email,
-each written for its channel, on deploys (`deploy_started` off by default, `deploy_success`,
-`deploy_failed`, `deploy_rolled_back`), restores, backups (`backup_failed`, and
-`backup_success` if you want a heartbeat), `cert_expiring`, `unit_failed`, `disk_threshold`,
-`app_unreachable` and `app_recovered` (an application whose unit runs but no longer answers, and
-its first answer after), `deploy_hook_failed`, reboots, approvals and, on a central, a server
-unreachable, recovered or with a changed host key. They come from every deployment: the CLI's, the console's, webhooks' and previews'. A
-failure carries the health gate's evidence, and every message names its server
-(`server.name`). Configure
-them in the console (Settings > Channels) or with
-`noust config set notifications.<key> <value>`, and test a channel with
-`noust notify test slack`. They are written in English or Spanish
-(`notifications.language`). Private and loopback destinations are refused unless listed in
-`notifications.allow_private_hosts`.
-
-Deploy on push: in the console (application > Settings > Deploy on push) or with
-`POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea,
-GitLab or Bitbucket Cloud webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
-reach. Signatures are verified; only pushes to the branch the application deploys update it
-(pin one with `noust app branch`), or, for an application that follows tags, a published
-release or a tag push.
-`noust app webhook show|rotate|disable|deliveries DOMAIN` does the same from the terminal: how
-far the setup is (public URL, secret, branch, GitHub App), the secret, and every delivery the
-forge sent, including the ones that were ignored or had a wrong signature.
-
----
-
-## API
-
-```bash
-noust token create ci --scope deploy
-curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps
-curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/openapi.json
-```
-
-A JSON API under `/api`. Tokens belong to an account and hold at most its permissions, narrowed
-by scope (`read`, `deploy`, `admin`), by a list of permissions or by network. Every route
-declares its permission (`x-noust-permission` in the schema), what needs sudo mode and what
-needs a second person's approval. Long operations are jobs
-you follow over REST, Server-Sent Events (`/events`) or WebSockets. Every error has the same
-shape: `{error, detail, hint, fields, output}`, where `output` is the system tool's own
-output. The contract is served as OpenAPI at `/api/openapi.json`. See
-[docs/api.md](docs/api.md).
-
----
-
-## Accounts, roles and audit
-
-```bash
-noust user create alice --role admin --person-ref alice@example.com   # password at a hidden prompt
-noust user invite bob --role operator                                   # a one-use code; Bob sets his own
-noust audit verify                                                      # the chain is intact
-noust ens check                                                         # against Spain's ENS, category MEDIUM
-```
-
-People sign in with their own account, each with one role: `viewer` (sees, changes nothing),
-`operator` (also restarts, deploys, rolls back, renews, backs up), `admin` (also creates,
-configures, deletes and reads secrets, and holds accounts, security settings and the audit log
-unless the roles are split, as they are under ENS medium), `security` (accounts, security
-settings and the audit log; deploys nothing) and `auditor` (reads everything, including the
-audit log). A second factor, an authenticator app or a passkey, is asked of every account where
-a compliance framework requires it and wherever the console is published; elsewhere an account
-sets it up when it likes. Where the separation of duties is on, one person cannot hold roles that
-go against each other without a documented exception. Until the first account exists, the access
-token works exactly as before; afterwards it is emergency access.
-
-Every change, from the console, the API or the CLI (`--reason` says why), is recorded in an audit
-log whose lines are chained with an HMAC (`noust audit verify`) and shipped to journald or a
-syslog server as they are written. With `approval.enabled`, root-equivalent changes (raw units,
-cron commands, backup hooks, raw site configuration), SQL that writes, adding servers and role
-grants wait for a second person (`noust approval`). `security.profile: ens-medium` sets every
-value Spain's Esquema Nacional de Seguridad expects for category MEDIUM, and `noust ens report`
-writes the evidence for an auditor. See [docs/security.md](docs/security.md) and
-[docs/ENS.md](docs/ENS.md).
-
----
-
-## The server
-
-```bash
-noust server status                         # updates pending, reboot due, disks, clock, swap
-noust server updates apply --security-only  # in its own systemd unit; never reboots by itself
-noust server security checks                # hardening checks, each with its fix or exact steps
-noust server security ssh harden disable-passwords   # reverts after 5 min unless confirmed from a new login
-noust server security firewall status       # the rules against the ports that really answer
-noust server reboot --at 04:00
-```
-
-The Server page and `noust server` look after the machine itself: operating-system updates
-(security first, the distribution's automatic updates, services left on replaced libraries,
-whether a reboot is due and why), reboots and shutdowns now or scheduled, SSH (the effective
-configuration, keys, and fixes that undo themselves unless you confirm from a new login), the
-firewall compared with the ports that answer (with a guard that never closes SSH, and a warning
-when Docker publishes past it), fail2ban, disks and clean-ups, swap, time, host name, processes
-and the journal of any unit. Every change runs as a job with the system's own output, needs sudo
-mode and is audited. A finding you decide to keep is accepted with a reason and an end date,
-never marked as passed.
-
----
-
-## The fleet
-
-One Noust, the central, shows and drives several Noust servers from a single console and CLI.
-The central can be one more VPS, or a container on a machine at home such as a NAS, reaching
-each server over an SSH tunnel it opens outward, so no port has to be opened anywhere. A central
-that only manages the fleet (`central.role = hub`) deploys nothing itself, unless a NAS's is given the
-machine's Docker socket on purpose and told to deploy containers on it
-([docs/central-deploy-here.md](docs/central-deploy-here.md)); a package for the App Center of a UGREEN NAS
-is in the repository ([docs/ugreen.md](docs/ugreen.md)). The central can also take the copies of its servers
-through the tunnels it already has (`noust fleet collect`), with nothing opened on the router.
-
-```bash
-noust node key vps1                                                    # on the central
-noust fleet authorize --central-key 'ssh-ed25519 AAAA...' --name nas   # on vps1, as root
-noust node add vps1 --ssh vps1.example.com --join-code -               # on the central
-noust fleet status                                                     # every server it manages
-noust fleet certs --expiring 21                                        # certificates of every server
-noust node label vps1 env=prod
-noust fleet run apps_update --label env=prod --serial 1 --canary vps1  # plan first, then run
-```
-
-Enrollment is inverted by default: you authorize the central **on the server**, where you are
-already root. When you only have an address and a way in, `noust fleet enroll vps1 --host
-203.0.113.9` (or the same two API calls, `POST /api/fleet/enroll/host-key` and `POST
-/api/fleet/enroll`) does the three steps from the central:
-it connects once, to a host key you confirm, installs Noust there if it is missing, authorizes
-itself and joins the server, and keeps neither the password nor the key. The result is the same
-as the manual way, which is what happens underneath: `noust fleet authorize` installs
-the central's key for `noust-tunnel`, an account with no home, no shell and no password that
-sshd itself restricts to forwarding that server's console port - no terminal, no command, no
-other forward - and prints a join code, which you paste into the central (`noust node add`).
-The central pins the server's SSH host key from that code; a change closes the tunnel rather
-than being accepted. A server enrolled by 3.0 has the key in root's `authorized_keys`; move it
-with `noust node migrate-tunnel`.
-
-Each server decides how far any central may go there, and enforces it itself: `read`, `deploy`
-or `admin`, plus `host access` (off by default) for SSH, the firewall, system accounts and
-root-equivalent changes (`noust fleet access`). The central forwards the operator's name and
-role, so the server applies its own table for that role within the ceiling and its audit log
-names the person, not the central. Anything a server marks as needing confirmation or approval
-is asked on the central, and the server refuses the call anyway if the central did not vouch
-for it.
-
-The console has a scope selector at the head of its sidebar (every page also exists at
-`/n/<server>/...`): one server, **All servers** or **This central**. All servers is the fleet,
-with fleet-wide views - overview, servers, applications, certificates, backups, updates and
-activity, each row linking to its server - and bulk actions: renew certificates, back up and
-verify, update or restart applications, update Noust or the operating system, on servers chosen
-by name or label, with a plan first, batches, a canary and a retry of what failed. A server that
-is down or too old is one row with its reason, never an error for the page. A central with its
-secrets sealed shows a lock screen until you unlock it, and `noust central backup` keeps an
-encrypted copy of everything it holds.
-
-![Fleet](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/assets/console/fleet.png)
-
-See [docs/CENTRAL.md](docs/CENTRAL.md) for running a central on a NAS or a VPS, the access
-ceiling, sealing its secrets, backups and troubleshooting.
-
----
-
-## Security model
-
-- **Root, on purpose.** Noust administers the machine, so it runs as root. An `admin` account,
-  the access token and any token holding `root_equivalent` can make changes that run as root;
-  treat them that way, and turn on approvals if one person should not make them alone.
-- **Roles and permissions at one chokepoint.** Every API route declares its permission and one
-  layer enforces it; a route without one is refused.
-- **Builds without root.** Dependencies install and build as `noust-build` in a sandbox, and a
-  build never falls back to root silently.
-- **Processes are started with an argument list, never a shell**, always with a timeout, and
-  secrets travel through the environment or standard input, never the command line. Only one
-  module may start a process, and the test suite enforces it. `--dry-run` runs only commands
-  declared as read-only probes.
-- **The console listens on loopback**, and refuses to serve beyond it without TLS.
-- **Strict Content Security Policy** with Trusted Types; no inline scripts or styles; nothing
-  loaded from another origin.
-- **Sessions** are server-side, `HttpOnly`, `SameSite=Strict`, with CSRF tokens; they end after
-  30 minutes idle and 12 hours in total. Every account has a second factor or a passkey. Five
-  failures lock an account, and an address, for 15 minutes.
-- **Sudo mode**: deleting, restoring, revealing secrets, editing units and sites, writing SQL or
-  configuration, server changes and account management need a confirmation from the last 10
-  minutes.
-- **Audit log**: one closed catalogue of events, chained with an HMAC, retained 365 days and
-  shipped off the machine to journald or syslog.
-- **Secrets at rest** are `0600`: configuration, `.env` files, the store, the credentials
-  Noust keeps for itself, backups; TOTP secrets are encrypted.
-
-See [docs/security.md](docs/security.md), which also says how to report a vulnerability, and
-[docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md) for what Noust guarantees, the failure each guarantee
+## What Noust is, and is not
+
+**It is**
+
+- **Your server.** A VPS or a bare-metal machine running Ubuntu, Debian, Fedora or openSUSE.
+- **systemd-native.** Every application is a unit you can inspect with `systemctl` and
+  `journalctl`; every site is a file in `/etc/nginx` or `/etc/apache2`. Nothing sits between
+  you and your processes, and there is no daemon with a privileged socket.
+- **A distribution package.** Installed with `apt`, `dnf` or `zypper`, or from PyPI.
+- **Atomic deploys with instant rollback.** Each deploy builds in its own directory, is
+  activated behind a health check, rolls back by itself when it does not answer, and any
+  release still on disk can be reactivated in seconds.
+- **A deploy queue.** A push that arrives while an application builds waits its turn instead
+  of failing, and several pushes are one update.
+- **Per-application resource limits** with cgroups: memory, CPU and tasks.
+- **Builds without root.** Dependencies install and build as an unprivileged account in a
+  systemd sandbox that cannot read the rest of the machine, and every application created from
+  3.2 runs as a system account of its own.
+- **A console and an API** over exactly what the CLI does, with accounts and roles, passkeys
+  and two-factor authentication, sudo mode, four-eyes approvals and a tamper-evident audit log.
+- **The server too**: operating-system updates, SSH, the firewall, fail2ban, disks and swap,
+  checked and changed safely from the same console.
+- **A terminal in the browser, on the record.** A shell as an application, in its sandbox and
+  with its environment, and commands run once; for administrators, a root shell on the server,
+  off until it is turned on ([docs/terminal.md](https://noust.dev/docs/guides/terminal/)).
+- **Docker, looked after whole.** When the machine has Docker, Server > Docker lists its containers,
+  images, volumes and networks whoever made them, says whose each is (an application's, a database
+  engine's, Noust's, or nobody's) and offers only what that owner's own way allows
+  ([docs/docker.md](https://noust.dev/docs/guides/compose/docker/)).
+- **An assistant, if you want one.** Off until an administrator turns it on, with the model you choose;
+  it explains and investigates, and what would change something is a proposal a person approves
+  ([docs/assistant.md](https://noust.dev/docs/guides/assistant/)).
+
+**It is not**
+
+- **A cluster or an orchestrator.** Each server runs its own applications and manages
+  itself. A central manages several Noust servers from one console and acts on many at once
+  (see [the fleet](https://noust.dev/docs/guides/fleet/)); it does not schedule work across them.
+- **A container orchestrator.** Applications run as ordinary processes. A Dockerfile, an image
+  or a Docker Compose project runs in containers on the same machine, under a unit, and Docker
+  is needed only for those; Noust looks after what Docker has there and does not schedule
+  containers across machines.
+- **A container boundary between running applications.** Each application created from 3.2
+  runs as an account of its own, so one cannot read another's tree, but they share the kernel
+  and the machine. Deploy only code you trust, as you would on any server you administer.
+
+**Security.** Noust administers the machine, so it runs as root, on purpose. An `admin`
+account, the access token and any token holding `root_equivalent` can make changes that run as root;
+treat them that way, and turn on approvals if one person should not make them alone. See
+[docs/security.md](https://noust.dev/docs/guides/security/), which also says how to report a vulnerability, and
+[docs/SECURITY-MODEL.md](https://noust.dev/docs/concepts/promises/) for what Noust guarantees, the failure each guarantee
 answers, the test that fails if it stops holding, what it does not guarantee, and how to verify a
 release's signatures.
 
 **Privacy.** Noust has no telemetry and sends no error reports to anyone. The only request it makes
 without being told where is the update check (`noust config set updates.check false` turns it off);
-everything else goes to addresses you configured. [docs/PRIVACY.md](docs/PRIVACY.md) lists them, and
-`tests/test_privacy.py` fails if a change adds a way out that is not declared.
+everything else goes to addresses you configured. [docs/PRIVACY.md](https://noust.dev/docs/concepts/privacy/) lists them,
+and `tests/test_privacy.py` fails if a change adds a way out that is not declared.
 
 ---
-
-## Command reference
-
-| Command | Does |
-|---|---|
-| **Applications** | |
-| `noust create` | Deploy an application and put it online (also `deploy`, `new`; `--recipe`) |
-| `noust list` | List deployed applications (`--json`) |
-| `noust status` | Show how an application is configured and whether it runs (`--json`) |
-| `noust start`, `stop`, `restart` | Control an application |
-| `noust update` | Pull, rebuild and redeploy an application (`--commit`, `--tag`) |
-| `noust delete` | Delete an application and everything deployed with it |
-| `noust logs` | Show or follow an application's log (`-f`, `--json`) |
-| `noust env` | Show, configure, mark or export an application's environment |
-| `noust releases` | List releases, set their retention and roll back to one instantly |
-| `noust app` | Migrate to releases; limits, health check, blue/green and the Compose relay, branch and tags, hooks, build commands and runtime (`app build`), adopt a running stack, workers, database copy, build sandbox, account, deploy webhook; export and import |
-| `noust runtime` | List, install and remove the Node and Python versions applications are pinned to; the PHP versions the server has |
-| `noust domain` | Add, list and remove aliases and redirects |
-| `noust preview` | Pull request previews |
-| `noust recipe` | Browse the catalogue of ready-made applications, install one, see which are outdated and update them |
-| `noust import` | Read another platform's configuration and propose Noust's |
-| `noust diagnose` | Explain why an application is down |
-| `noust rollback` | Restore an application's latest backup |
-| **Web server and certificates** | |
-| `noust site` | Create, enable, disable, show and delete nginx or Apache sites |
-| `noust cert` | Obtain, list, inspect, renew, revoke and delete certificates |
-| **Services and schedules** | |
-| `noust service` | Create and control the systemd services Noust owns |
-| `noust cron` | Run commands on a schedule, as systemd timers |
-| **Data** | |
-| `noust backup` | Create, verify, restore, schedule and send backups off the server |
-| `noust db` | Install engines; databases per application, data, queries, users, backups and their policies |
-| **The machine** | |
-| `noust setup` | Prepare the server (`init`), check it (`doctor`), SSH keys, completions |
-| `noust server` | Updates, reboots, storage, swap, time, host name, processes, logs; `server security` for checks, SSH, firewall, fail2ban and accepted risks |
-| `noust health` | Check the server and report what needs attention |
-| `noust monitor` | Watch processes, resources, units and certificates, record the metrics history, and report |
-| `noust config` | Read, set, upgrade and clean Noust's configuration |
-| `noust store` | Inspect, export and maintain Noust's database |
-| **Fleet** | |
-| `noust fleet authorize` | Run on a server: let a central manage it, and print the join code |
-| `noust fleet deauthorize` | Run on a server: stop trusting a central, revoke its key and tokens |
-| `noust fleet access` | Run on a server: the most any central may do there |
-| `noust fleet status` | Run on a central: every node it manages, reachability, version, apps |
-| `noust fleet apps`, `certs`, `backups`, `updates`, `activity` | Run on a central: one view across every node |
-| `noust fleet run`, `jobs`, `retry` | Run on a central: an action on several nodes, with a plan, batches and a canary |
-| `noust node` | Run on a central: register, list, show, test, label, rekey, migrate to the tunnel account and remove nodes |
-| `noust central` | Run and look after a central: serve it (`run`), back it up, seal, unseal, unlock, status |
-| **Console and access** | |
-| `noust web` | Start, stop and inspect the console, or run it as a service; issue its access token |
-| `noust github` | The GitHub App: status, installations, repositories |
-| `noust user` | Accounts and roles: create, invite, set a role, disable, unlock, reset MFA, exceptions |
-| `noust passkey` | List and remove passkeys; reset them when all are lost |
-| `noust token` | Create, list and revoke API tokens |
-| `noust sessions` | List and revoke console sessions |
-| `noust 2fa` | Enrol, confirm, disable or recover the access token's two-factor authentication |
-| `noust approval` | Four-eyes requests: list, show, approve, reject |
-| `noust audit` | Read, verify, export, ship and review the audit log |
-| `noust ens` | Check the server against the ENS profile; evidence report, access reviews, inventory |
-| `noust incident` | Freeze the evidence of an incident and lock the console down |
-| `noust notify` | Send a test notification through a channel |
-
-Global options go before the command: `-v` (verbose), `--dry-run`, `--json`, `--no-color`,
-`--reason` (why, for the audit log), `-i` (interactive menu), `--changelog`, `-V` (version). Tab completion: `noust setup
-completions`.
-
----
-
-## Supported application types
-
-| Type | Detected by | Built and run with | Releases |
-|---|---|---|---|
-| `nextjs` | `next.config.{js,mjs,ts}`, or `next` in `package.json` | Install, `build`, then `start` or the standalone server | Yes |
-| `nuxt` | `nuxt` in `package.json`, or a `nuxt.config` | Install, `build`; Nitro's server (`.output/server/index.mjs`), or the generated files | Yes |
-| `sveltekit` | `@sveltejs/kit` in `package.json` | Install, `build`; `node build` with `adapter-node`, the files with `adapter-static` | Yes |
-| `astro` | `astro` in `package.json`, or an `astro.config` | Install, `build`; the files, or `dist/server/entry.mjs` with `@astrojs/node` | Yes |
-| `remix` | `@remix-run/*` or `@react-router/*`, or a `react-router.config` | Install, `build`; the `start` script or `remix-serve`; the client bundle in SPA mode | Yes |
-| `angular` | `angular.json` with `@angular/core` | Install, `build`; the client bundle, or the SSR server | Yes |
-| `vite` | `vite.config.{js,ts,mjs}`, or `vite` in `package.json` | Install, `build`, served as static files; `preview` when it uses SSR | Yes |
-| `nodejs` | `package.json` with Express, Fastify or Koa, a `main` or a `start` script | Install, `build` if present, then `start:prod`, `start:production` or `start` | Yes |
-| `python` | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | A virtual environment (Poetry or Pipenv when locked); Gunicorn (Hypercorn when the project depends on it) on `127.0.0.1`, with Uvicorn workers for FastAPI and Starlette; Django's `collectstatic` when it has a `STATIC_ROOT` | Yes |
-| `php-fpm` | `composer.json` with a front controller, or a root `index.php` | A PHP-FPM pool per application on its own socket, `composer` when there is a `composer.json`, a fastcgi site (nginx or Apache); `public/` detected | Yes |
-| `go` | `go.mod` with a `package main`, and no Dockerfile | `go mod download`, then `go build` in the build sandbox; the binary runs as the unit | Yes |
-| `rust` | `Cargo.toml` with a program, and no Dockerfile | `cargo fetch`, then `cargo build --release --offline`; the binary runs as the unit | Yes |
-| `ruby` | `Gemfile` next to `config.ru` or Rails's `config/application.rb`, and no Dockerfile | Bundler in the release, assets precompiled, Puma on `127.0.0.1` | Yes |
-| `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
-| `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace. For new work prefer one application per workspace: [docs/workspaces.md](docs/workspaces.md) | In place; releases after `noust app migrate` ([docs/releases.md](docs/releases-compose.md#a-monorepo-on-releases)) |
-| `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports; hooks, relay, database copy | In place |
-| `container` | A `Dockerfile` or `Containerfile` with no compose file; `--image` for a registry; `--builder railpack` for any other language | A compose file Noust writes, one container on 127.0.0.1 under a systemd unit, nginx in front; one image per release | Images |
-
-Detection tries the most specific type first: monorepo, Docker Compose, Angular, Astro, Nuxt,
-Remix, SvelteKit, Next.js, PHP, Vite, Python, Go, Ruby, Rust, Node.js, static. When nothing matches, Noust falls
-back to Node.js and says so; pass `--type` to choose. Node package managers (npm, pnpm, Yarn,
-Bun) are detected from the lockfile (`pnpm-lock.yaml`, `bun.lockb` or `bun.lock`, `yarn.lock`,
-`package-lock.json`, then `packageManager`), the nearest one above the project in a monorepo;
-`--pm npm|pnpm|bun` forces one. Any of them can be built and started with commands of your
-own: [docs/build.md](docs/build.md).
-
----
-
-## Configuration
-
-`/etc/noust/config.yaml`, mode `0600`. Read and change it with the CLI rather than by hand:
-
-```bash
-noust config show                              # everything in effect, secrets in clear
-noust config get deploy.layout                 # one key; secrets print as ***
-noust config set ssl.email ops@example.com
-noust config upgrade                           # add the options a newer Noust expects
-noust config clean                             # remove the settings no version reads any more
-```
-
-Common keys: `apps_directory` (`/var/www/apps`), `webserver` (`nginx`), `service_user`
-(`www-data`), `ssl.email`, `deploy.layout` (`releases` for new applications, or `inplace`),
-`backup.directory` (`/var/backups/noust`), `server.name`, `security.profile` (`standard` or
-`ens-medium`), `auth.*`, `audit.*`, `approval.*`, `notifications.*`, `monitor.*`. Every setting
-is documented in [docs/CONFIG.md](docs/CONFIG.md). `NOUST_APPS_DIR`,
-`NOUST_WEBSERVER`, `NOUST_SERVICE_USER` and `NOUST_SSL_EMAIL` override the matching keys. The
-reference configuration is
-`/usr/share/noust/config.example.yaml`.
-
-## Files
-
-```
-/var/www/apps/<app>/          applications (see Releases above)
-/etc/noust/config.yaml        configuration, 0600 in a 0700 directory
-/etc/noust/web-*              console state: signing key, token hash, sessions, 2FA, audit log
-/var/lib/noust/noust.db       the store: applications, deployments, jobs, releases, domains
-/var/lib/noust/               also build logs, and secrets/ for the credentials Noust keeps
-/var/backups/noust/           backup archives
-/var/cache/noust/build/<app>/ build caches, owned by the noust-build account
-/var/log/noust/               Noust's own log files
-/etc/nginx/noust-upstreams/   servers files a Compose relay switches (<app>/<service>.servers)
-/etc/systemd/system/          units: <app>.service, noust-web, noust-monitor, noust-cron-*,
-                              noust-backup-*, noust-previews
-```
-
-When `/var/lib/noust` is not writable the store lives in `~/.local/share/noust/`; `noust store path` prints where it
-is.
-A server that came through 3.x may still carry links under the product's old names beside these
-paths; `noust setup retire-links` removes the ones nothing uses.
 
 ## Requirements
 
-- **Operating system and processor**: Debian 12 and 13, Ubuntu 22.04, 24.04 and 26.04, Fedora, openSUSE Leap and Tumbleweed, and the RHEL family through pip; amd64 and arm64, Raspberry Pi 64-bit included ([docs/PLATFORMS.md](docs/PLATFORMS.md) says what each is, and what was tested where)
+- **Operating system and processor**: Debian 12 and 13, Ubuntu 22.04, 24.04 and 26.04, Fedora, openSUSE Leap and Tumbleweed, and the RHEL family through pip; amd64 and arm64, Raspberry Pi 64-bit included ([docs/PLATFORMS.md](https://noust.dev/docs/start/platforms/) says what each is, and what was tested where)
 - **Python**: 3.10 to 3.14
 - **Privileges**: root
 - **Installed by `noust setup init` when missing**: nginx or Apache, certbot, git, Node.js
-- **Per application type**: `python3-venv` for Python, PHP-FPM and its extensions for PHP,
-  Docker with the Compose plugin for Compose projects, the engine for databases
-  (`noust db install`), rclone for remote backup destinations
 
----
-
-## Documentation
-
-The documentation is in [docs/](docs/), arranged by the question you have.
-
-**Start**: what Noust is, how to install it, and a first application from start to finish.
-
-- [What Noust is, and when it is not for you](docs/what-is-noust.md) and
-  [how it works](docs/concepts.md)
-- [Install Noust](docs/install.md), on [the platforms it supports](docs/PLATFORMS.md)
-- Your first application: [deploy it](docs/first-application.md),
-  [put it on your domain](docs/first-domain.md), [give it a database](docs/first-database.md),
-  [back it up](docs/first-backup.md), [roll it back](docs/first-rollback.md),
-  [add a service from the catalog](docs/first-service.md) and
-  [make it safe to leave alone](docs/first-safety.md)
-- [Add a server to your fleet](docs/first-fleet.md), or
-  [move from Coolify or Dokploy](docs/first-move.md)
-- [Next steps, by what you want to do](docs/next-steps.md)
-
-**Something is wrong**: [Troubleshooting](docs/troubleshooting.md), one page per symptom, with
-the messages word for word.
-
-**Guides**: [stacks](docs/frameworks.md), [build](docs/build.md), [sources](docs/sources.md),
-[Docker Compose](docs/compose.md), [containers](docs/containers.md), [Docker](docs/docker.md),
-[recipes](docs/recipes.md), [releases and rollback](docs/releases.md),
-[domains](docs/domains.md), [certificates](docs/certificates.md),
-[databases](docs/databases.md), [backups](docs/disaster-recovery.md), [CI](docs/ci.md),
-[the monitor](docs/MONITOR.md), [notifications](docs/notifications.md),
-[the console's security](docs/security.md), [teams](docs/teams.md), [single sign-on](docs/sso.md),
-[the built-in assistant](docs/assistant.md), [seeing what an operation will do](docs/plans.md),
-[a central and its fleet](docs/CENTRAL.md), [deploying where the central runs](docs/central-deploy-here.md),
-[Noust on a UGREEN NAS](docs/ugreen.md), and [from Coolify](docs/coolify.md),
-[Dokploy](docs/dokploy.md), [CapRover](docs/caprover.md) or [Dokku](docs/dokku.md).
-
-**Concepts**: [the guarantees Noust makes](docs/SECURITY-MODEL.md) and
-[what leaves a server](docs/PRIVACY.md).
-
-**Reference**: [every command](docs/reference-cli.md), [every API operation](docs/reference-api.md)
-and [the API guide](docs/api.md), [every setting](docs/reference-config.md) and
-[what each one does](docs/CONFIG.md), [the console page by page](docs/console.md), `man noust` and
-`noust <command> --help`.
-
-**Releases**: [the release policy](docs/release-policy.md),
-[upgrading to 4.3](docs/UPGRADING-4.3.md), [going back](docs/downgrading.md),
-[what changed in 4.3](docs/CHANGELOG-4.3.md) and in the API ([API changes](docs/API-CHANGELOG.md)).
-Every earlier release has its own changelog and upgrade guide in [docs/](docs/); those of the line
-that carried the product's previous name are [2.3](docs/CHANGELOG-2.3.md), [2.2](docs/CHANGELOG-2.2.md),
-[2.1](docs/CHANGELOG-2.1.md), [2.0](docs/CHANGELOG-2.0.md) and [upgrading to 2.0](docs/UPGRADING-2.0.md).
-
-ENS: [Esquema Nacional de Seguridad, categoría MEDIA](docs/ENS.md) (in Spanish).
+[Requirements](https://noust.dev/docs/start/requirements/) has the rest, per application type, and what Noust itself costs when it is doing nothing.
 
 ---
 
@@ -1080,14 +266,14 @@ mypy                            # types
 
 The console's source is in `panel/` (React, TypeScript, Vite; Node 22). Its build is
 committed to `src/noust/web/static/`, so packaging never runs Node. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the project's rules and the console workflow.
+[CONTRIBUTING.md](https://github.com/Perkybeet/noust/blob/main/CONTRIBUTING.md) for the project's rules and the console workflow.
 
 ---
 
 ## License
 
 From 2.1.0, Noust (then under its previous name) is free software under the **GNU Affero General Public License,
-version 3 or later** ([LICENSE](LICENSE)). You may use it for anything, commercially
+version 3 or later** ([LICENSE](https://github.com/Perkybeet/noust/blob/main/LICENSE)). You may use it for anything, commercially
 included, study it, change it and share it. If you change Noust and let others use your
 changed version over a network (a hosted service, say), you must offer them its source under
 the same licence.
@@ -1096,7 +282,7 @@ Releases up to 2.0.x were published under a non-commercial source-available lice
 under it: the text is the `LICENSE` of each of those tags.
 
 Copyright (c) 2024-2026 Yago López Prado. For a licence on other terms (for example to
-embed Noust in a closed product), write to yago.lopez.adeje@gmail.com.
+embed Noust in a closed product), write to support@noust.dev.
 
 ## Acknowledgments
 
@@ -1107,10 +293,12 @@ embed Noust in a closed product), write to yago.lopez.adeje@gmail.com.
 
 ## Support
 
+- **Website**: [noust.dev](https://noust.dev)
+- **Documentation**: [noust.dev/docs](https://noust.dev/docs/)
 - **Questions and ideas**: [GitHub Discussions](https://github.com/Perkybeet/noust/discussions)
-- **Bugs and requests**: [GitHub Issues](https://github.com/Perkybeet/noust/issues/new/choose); from the console, **Report a problem** opens the form filled in ([how](docs/SUPPORT.md))
-- **A vulnerability**: privately, see [SECURITY.md](SECURITY.md)
-- **Email**: yago.lopez.adeje@gmail.com
+- **Bugs and requests**: [GitHub Issues](https://github.com/Perkybeet/noust/issues/new/choose); from the console, **Report a problem** opens the form filled in ([how](https://noust.dev/docs/project/support/))
+- **A vulnerability**: privately, see [SECURITY.md](https://github.com/Perkybeet/noust/blob/main/SECURITY.md)
+- **Email**: [support@noust.dev](mailto:support@noust.dev)
 
 ---
 
