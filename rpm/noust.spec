@@ -9,7 +9,7 @@ Version:        4.3.0
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
-URL:            https://github.com/Perkybeet/noust
+URL:            https://noust.dev
 Source0:        noust-%{version}.tar.gz
 BuildArch:      noarch
 

@@ -87,7 +87,7 @@ before, and what You submitted under this one stays under this one.
 
 ## Questions
 
-Write to yago.lopez.adeje@gmail.com.
+Write to support@noust.dev.
 
 ---
 

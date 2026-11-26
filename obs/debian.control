@@ -17,7 +17,7 @@ Build-Depends: debhelper-compat (= 13),
                python3-setuptools,
                python3-wheel
 Standards-Version: 4.6.0
-Homepage: https://github.com/Perkybeet/noust
+Homepage: https://noust.dev
 Rules-Requires-Root: no
 
 Package: noust

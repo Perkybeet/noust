@@ -378,7 +378,7 @@ class TestTheAgreementOfAContribution:
         assert "Yago López Prado" in flat
         assert re.search(r"commercial", flat, re.IGNORECASE)
         assert re.search(r"AGPL.{0,40}stays", flat, re.IGNORECASE | re.DOTALL)
-        assert "yago.lopez.adeje@gmail.com" in flat
+        assert "support@noust.dev" in flat
 
     def test_it_tells_a_contributor_the_words_that_sign_it_and_where_the_signature_goes(
         self,

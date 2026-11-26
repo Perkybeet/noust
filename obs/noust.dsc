@@ -4,7 +4,7 @@ Binary: noust
 Architecture: all
 Version: 4.3.0-1
 Maintainer: Yago López Prado <yago.lopez.adeje@gmail.com>
-Homepage: https://github.com/Perkybeet/noust
+Homepage: https://noust.dev
 Standards-Version: 4.6.0
 Build-Depends: debhelper-compat (= 13), dh-python, pybuild-plugin-pyproject, python3-all, python3-setuptools, python3-wheel
 Package-List:

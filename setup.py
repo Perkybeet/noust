@@ -11,7 +11,7 @@ setup(
     name="noust",
     version="4.3.0",
     description="Noust - deploy and manage web applications on Linux servers",
-    url="https://github.com/Perkybeet/noust",
+    url="https://noust.dev",
     author="Yago López Prado",
     author_email="yago.lopez.adeje@gmail.com",
     license="AGPL-3.0-or-later",

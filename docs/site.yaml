@@ -870,6 +870,8 @@ checked:
 
 # Markdown files of docs/ that are deliberately not on the site, with the reason.
 exclude:
+  - source: docs/README.md
+    why: The index of the folder for whoever opens it on GitHub; it points at the published documentation.
   - source: docs/UPGRADING-2.0.md
     why: The upgrade guide of a line that carried the product's previous name; history, kept in the repository.
   - source: docs/CHANGELOG-2.3.md

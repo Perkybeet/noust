@@ -112,11 +112,13 @@ all = [
 noust = "noust.cli.app:entrypoint"
 
 [project.urls]
-Homepage = "https://github.com/Perkybeet/noust"
-Documentation = "https://github.com/Perkybeet/noust#readme"
-Repository = "https://github.com/Perkybeet/noust.git"
+Homepage = "https://noust.dev"
+Documentation = "https://noust.dev/docs/"
+Repository = "https://github.com/Perkybeet/noust"
 "Bug Tracker" = "https://github.com/Perkybeet/noust/issues"
-Changelog = "https://github.com/Perkybeet/noust/releases"
+Changelog = "https://noust.dev/changelog/"
+Discussions = "https://github.com/Perkybeet/noust/discussions"
+Security = "https://github.com/Perkybeet/noust/security/policy"
 
 [tool.setuptools.packages.find]
 where = ["src"]

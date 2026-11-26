@@ -1,6 +1,6 @@
 # Getting help
 
-Noust is maintained by one person and a few contributors. This page says where to ask, what makes a
+Noust is maintained by one person. This page says where to ask, what makes a
 report fixable in one pass, and what happens to an issue after you open it.
 
 ## Where to ask
@@ -13,6 +13,7 @@ report fixable in one pass, and what happens to an issue after you open it.
 | Ask for a **feature** | [A feature request](https://github.com/Perkybeet/noust/issues/new?template=feature_request.yml) |
 | Ask for an **application in the catalogue** | [A recipe request](https://github.com/Perkybeet/noust/issues/new?template=recipe_request.yml), and [how to write one](contributing-recipes.md) |
 | Ask **how to do something**, or talk an idea over | [Discussions](https://github.com/Perkybeet/noust/discussions): [Q&A](https://github.com/Perkybeet/noust/discussions/categories/q-a) for a question, [Ideas](https://github.com/Perkybeet/noust/discussions/categories/ideas) for something that is not yet a request. Read [the documentation](../README.md) and [troubleshooting](troubleshooting.md) first. An answer that belongs in a page of the documentation ends up there. |
+| Write about something that **cannot be public** and is not a vulnerability | <support@noust.dev> |
 | Contribute a **change** | [CONTRIBUTING.md](../CONTRIBUTING.md): the four rules, the architecture and how to run the checks. The first pull request signs [the contributor agreement](../CLA.md) with one comment. Everyone who takes part follows the [code of conduct](../CODE_OF_CONDUCT.md). |
 
 There is no chat room. A community channel beyond Discussions is a decision about how the project is
