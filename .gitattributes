@@ -5,6 +5,8 @@
 .github/ export-ignore
 .gitignore export-ignore
 .gitattributes export-ignore
+.editorconfig export-ignore
+.gitleaksignore export-ignore
 
 # Exclude build and test files
 Makefile export-ignore
@@ -38,5 +40,10 @@ man/noust.1 linguist-generated=true
 docs/reference-*.md linguist-generated=true
 docs/SECURITY-MODEL.md linguist-generated=true
 sdk/python/noust_sdk/_models.py linguist-generated=true
+# The snapshots a test compares against are written by the test run, and the example applications
+# are there to be deployed by the harness: neither is the project's code, and without this the
+# language bar counts their HTML, Java, Kotlin, Elixir and PHP as Noust's.
+tests/snapshots/** linguist-generated=true
+examples/** linguist-documentation=true
 sdk/python/noust_sdk/_operations.py linguist-generated=true
 src/noust/changelog.json linguist-generated=true

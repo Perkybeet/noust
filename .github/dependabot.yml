@@ -41,3 +41,24 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+
+  # The Terraform and OpenTofu provider: its Go modules.
+  - package-ecosystem: gomod
+    directory: /terraform-provider-noust
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      provider:
+        patterns: ["*"]
+
+  # The base image of the central's container.
+  - package-ecosystem: docker
+    directory: /packaging/container
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      container:
+        patterns: ["*"]

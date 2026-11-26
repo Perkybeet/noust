@@ -1,0 +1,37 @@
+# Findings of the gitleaks scan (.github/workflows/security.yml) that were read one by one and are not
+# credentials. The scan reads the whole history, so a line that no longer exists is still reported on
+# every run; .gitleaks.toml allows what the tree holds today, and this list names what only the
+# history holds. Each entry is commit:file:rule:line.
+#
+# - the example command of the console's tokens page (`Authorization: Bearer <prefix>_tok_...`), in
+#   its source and in the builds of the console committed at the time;
+# - a vendored terminal library of a console that is no longer shipped;
+# - names of tables and settings in two recipes, and the placeholder `elastic:...` of a third;
+# - the licence identifier in four community translations;
+# - the made-up token of the Terraform provider's tests;
+# - a placeholder the length of a host key (the letter A, 400 times) and two lines that pass a
+#   variable named `token`.
+#
+# A new entry is added only after reading the line it names.
+03ae3f0fd5ce6c3badcc1e6d9315a2bb8cc9d725:panel/src/features/settings/TokensSettings.tsx:curl-auth-header:162
+075505f398206e0293c095dd096fbd76fc4e3413:src/wasm/web/static/assets/tokens-CYQQAyns.js:curl-auth-header:1
+0db4b960af746c32e1c64d06993cc473166fac0c:src/wasm/web/static/assets/tokens-Crrsvn_Y.js:curl-auth-header:1
+12e2b83186251594154aacf0314d02658ef59ecc:src/noust/recipes/hyperdx.yaml:generic-api-key:65
+12e2b83186251594154aacf0314d02658ef59ecc:src/noust/recipes/hyperdx.yaml:generic-api-key:66
+326cafdfceff74ec684a0babfcaf19e4fc7e4142:src/wasm/web/static/vendor/xterm.js:generic-api-key:1
+3cf36ddea42f64e98a47e8e4d60002f91e225352:src/wasm/web/static/assets/tokens-BW0giDTf.js:curl-auth-header:1
+42127e1264eba1346ebf09329180e931aa1d9a29:panel/src/i18n/community/pt-BR.json:generic-api-key:2584
+4b9a2c3e2520cc6d32af886e1ac7ac118ad458e5:src/wasm/web/static/assets/tokens-ccf9q4Mb.js:curl-auth-header:1
+649d39052ba5a939928859c0930f4404961658c0:terraform-provider-noust/internal/provider/resource_variable_test.go:generic-api-key:48
+87839405fc5ac26b05b8bbd1987edff7ec785d6c:src/wasm/web/static/assets/tokens-kjIcT9r4.js:curl-auth-header:1
+88f0722553703dc79e17e1ff997d816d9e75298b:panel/src/features/settings/TokensSettings.tsx:curl-auth-header:160
+a75b35c381b37e36c2158251b64b086fc09a7dc9:src/noust/recipes/elasticsearch.yaml:curl-auth-user:73
+abd5c53cd4864bd72730f3f020b1073392e36e6c:src/noust/fleet/cloud/provision.py:private-key:241
+c3d1895ff695560ae9ee64e4651889ce0e39f62a:src/noust/core/accounts/oauth_github.py:generic-api-key:263
+c3d1895ff695560ae9ee64e4651889ce0e39f62a:src/noust/core/accounts/oauth_github.py:generic-api-key:266
+c812527881f72ab5b3ff104c89832ece906a379c:panel/src/i18n/community/fr.json:generic-api-key:2584
+d16f7ea54652e374e80d629c8ae790bd28a0064b:src/wasm/web/static/assets/tokens-B2f_zjw0.js:curl-auth-header:1
+d4de485c7f534d0749fbb447a742cb5c6e2ed5dd:panel/src/i18n/community/zh-CN.json:generic-api-key:2534
+e1bc3792b3291acb1c9547fba165163886065ba5:panel/src/i18n/community/de.json:generic-api-key:2584
+fcef96f0222ca269e3af3e11aeffe12c7f6dd904:terraform-provider-noust/internal/noust/client_test.go:generic-api-key:17
+fe170d49af455265c102da1c224a91253c74d299:src/noust/recipes/obsidian-livesync.yaml:curl-auth-user:64

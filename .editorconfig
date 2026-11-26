@@ -1,0 +1,24 @@
+# What an editor needs to know before the formatters run (ruff for Python, the console's own
+# tooling under panel/): the encoding, the line ending and the indentation of each kind of file.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{ts,tsx,js,mjs,json,yml,yaml,css,html}]
+indent_size = 2
+
+[*.md]
+# Two spaces at the end of a line are a line break in Markdown.
+trim_trailing_whitespace = false
+
+[{Makefile,*.mk,*.go}]
+indent_style = tab
+
+[debian.rules]
+indent_style = tab
