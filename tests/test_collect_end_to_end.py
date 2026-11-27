@@ -15,6 +15,7 @@ server ends up knowing which copies the central holds, and the retention that wa
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -137,8 +138,12 @@ class TestOnePassBetweenTwoRealSides:
         central_for(app, tmp_path).collect(NODE)
         late = disk.apps.add(stamp="20261111_020000")
 
+        # Judged the day after the late copy: at today's date both would be past the days a server
+        # waits for its central, and the retention would decide alone.
         spared = backup_hold.spared(
-            "app", [(taken.id, taken.created_at), (late.id, late.created_at)]
+            "app",
+            [(taken.id, taken.created_at), (late.id, late.created_at)],
+            now=datetime(2026, 11, 12, 2, 0, tzinfo=timezone.utc),
         )
 
         assert spared == {late.id}
